@@ -1,0 +1,49 @@
+{
+  "$comment": "Machine-readable source declarations. Runtime enforcement is each skill's preflight: connector registration and session tool availability are different surfaces, so every run probes by tool search. 'required' = the skill's core promise breaks without it (run is partial and must say so); 'preferred' = degrades acceptably via the protocols in the SKILL.md. The M365 connector needs the organization's admin to approve it, cell-level Excel reads aren't documented, and its write tools are off until an admin enables them and work on whole files only (no in-place Excel editing) — the pending-review write degrades to an export sheet when absent.",
+  "sources": {
+    "m365-sharepoint-read": {
+      "connector": "Microsoft 365",
+      "degradedFallback": "none for build-target-list — the media log IS the candidate pool; without it the chain stops after analyze-release and says so"
+    },
+    "m365-outlook-read": {
+      "connector": "Microsoft 365",
+      "degradedFallback": "Pass B loses its primary source; open-web sweep (Bluesky public feed + web) still runs, framed as partial"
+    },
+    "google-drive": {
+      "connector": "Google Drive (designed, unverified)",
+      "degradedFallback": "a Google Sheet log is read only in a session a person started; the pending-review rows go on their own sheet in the export if the new Sheet cannot be created"
+    },
+    "local-files": {
+      "connector": "the gameplan root's own files",
+      "degradedFallback": "none needed: a file log and the suite's own list are read and written locally, unattended runs included"
+    },
+    "m365-sharepoint-write": {
+      "connector": "Microsoft 365 (write scopes, admin-gated)",
+      "degradedFallback": "approved discoveries land on their own sheet in the export with a 'paste into your review file' note; the chain never stalls on this"
+    },
+    "archive-files": {
+      "connector": "the gameplan root's own files, through scripts/archive.py",
+      "degradedFallback": "no project folder, or the script fails: pitch-history check becomes a named gap, finalize saves nothing durable (operator is told before curation begins), history questions and /outcomes unavailable"
+    },
+    "newsdata": {
+      "connector": "Newsdata archive API (NEWSDATA_API_KEY in the environment; Claude Code only, the Claude app has nowhere to keep a key)",
+      "degradedFallback": "media lists come from web search alone, said as a named gap"
+    },
+    "web": {
+      "connector": "built-in web search",
+      "degradedFallback": "discovery Pass A, the open-web half of Pass B, pitch-angle notes, and outcome search all become named gaps"
+    }
+  },
+  "skills": {
+    "analyze-release": { "required": [], "preferred": [], "note": "pure analysis of provided text; touches nothing" },
+    "reporter-list": { "required": [], "preferred": ["m365-sharepoint-read", "m365-sharepoint-write", "google-drive", "local-files"], "note": "requires exactly the source media_log.source names (m365, google, file, suite); the only reader of the media log and the only writer of pending review; a failed write hands the rows back for the export" },
+    "build-target-list": { "required": ["m365-sharepoint-read"], "preferred": ["archive-files"], "note": "reads the log through reporter-list; without the archive, pitch history is a named gap, never silently skipped" },
+    "discover-reporters": { "required": [], "preferred": ["web", "m365-outlook-read"], "note": "zero findings is a fine answer; absent sources are named, not papered over" },
+    "curate-and-archive": { "required": ["archive-files"], "preferred": ["m365-sharepoint-write"], "note": "finalize with no project folder must warn BEFORE curation starts, not at save time; the pending-review write goes through reporter-list" },
+    "export-list": { "required": [], "preferred": [], "note": "local file generation only" },
+    "pitch-angle-notes": { "required": ["web"], "preferred": [], "note": "" },
+    "track-outcomes": { "required": ["archive-files", "web"], "preferred": [], "note": "" },
+    "campaign-history": { "required": ["archive-files"], "preferred": [], "note": "" },
+    "media-list-run": { "required": ["web"], "preferred": ["newsdata"], "note": "reads and writes the reporter list only through reporter-list; no list at all starts the suite's own" }
+  }
+}

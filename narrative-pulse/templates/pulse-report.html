@@ -1,0 +1,227 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>{{REPORT_NAME}} · {{RUN_DATE}}</title>
+<style>
+/* The suite's one look. The page fetches nothing: every face below is on a plain Windows and a plain Mac.
+   --primary and --accent are the agency's two brand colors; the status colors are the same under every brand. */
+:root{
+  --primary:#0F2F2C; --accent:#8A6420;
+  --ink:#17201F; --muted:#5A6664; --rule:#D9DCD6; --paper:#FFFFFF; --ground:#EEF0EC;
+  --good:#1E7A4C; --warn:#A86200; --bad:#B3261E;
+  --display:Georgia,"Times New Roman",serif; --text:Arial,"Helvetica Neue",Helvetica,sans-serif; --label:Verdana,Arial,sans-serif;
+}
+*{box-sizing:border-box}
+body{margin:0;background:var(--ground);color:var(--ink);font-family:var(--text);font-size:14.5px;line-height:1.5}
+.page{max-width:1040px;margin:0 auto;background:var(--paper);padding:40px 56px 64px}
+.label,.kicker,th,.kind,.trend,.band{font-family:var(--label);font-weight:700;font-size:11px;letter-spacing:.1em;text-transform:uppercase}
+.topline{display:flex;justify-content:space-between;gap:12px;flex-wrap:wrap;color:var(--muted);padding-bottom:10px;border-bottom:1px solid var(--rule)}
+.topline b{color:var(--primary)}
+h1{font-family:var(--display);font-weight:400;font-size:40px;line-height:1.05;margin:26px 0 12px;color:var(--primary)}
+.state{display:flex;gap:10px;align-items:center;flex-wrap:wrap;font-size:13px;color:var(--muted)}
+.state b{color:var(--ink)}
+.band{display:inline-block;background:var(--good);color:#fff;padding:3px 8px}
+body[data-doc-state="for-approval"] .band{background:var(--warn)}
+.facts{display:grid;grid-template-columns:150px minmax(0,1fr);gap:4px 24px;margin:16px 0 0;font-size:13px}
+.facts dt{font-family:var(--label);font-weight:700;font-size:11px;line-height:1.9;letter-spacing:.08em;text-transform:uppercase;color:var(--muted)}
+.facts dd{margin:0}
+section{margin-top:36px}
+h2{font-family:var(--display);font-weight:400;font-size:23px;line-height:1.2;margin:0 0 10px;color:var(--primary)}
+h3{font-family:var(--text);font-weight:700;font-size:14px;margin:22px 0 8px;color:var(--primary)}
+.sechead{display:flex;justify-content:space-between;align-items:flex-end;gap:10px;flex-wrap:wrap;margin-bottom:10px}
+.sechead h2{margin:0}
+.pick{display:flex;flex-wrap:wrap;gap:6px}
+.pick[hidden]{display:none}
+.pick button{font:600 12.5px var(--text);padding:6px 11px;border:1px solid var(--rule);background:var(--paper);color:var(--ink);cursor:pointer}
+.pick button[aria-pressed="true"]{background:var(--primary);border-color:var(--primary);color:#fff}
+.pick button:focus-visible{outline:3px solid var(--accent);outline-offset:2px}
+.dims{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));border-top:2px solid var(--accent)}
+.dim{padding:12px 14px 14px 0;border-bottom:1px solid var(--rule);min-width:0;display:flex;flex-direction:column;gap:8px}
+.dim+.dim{padding-left:14px;border-left:1px solid var(--rule)}
+.dim .kicker{color:var(--muted)}
+.val{display:flex;flex-direction:column;gap:9px}
+.e{font-size:12px;line-height:1.35;color:var(--muted);transition:opacity .15s}
+.e .who{display:block;color:var(--ink);font-weight:700}
+.e .v b{font-family:var(--display);font-weight:400;font-size:20px;line-height:1.1;color:var(--primary);font-variant-numeric:tabular-nums;white-space:nowrap}
+.e .t{display:block;height:5px;background:var(--rule);margin-top:4px}
+.e .t::before{content:"";display:block;height:5px;background:var(--primary);width:calc(100% * var(--n) / var(--of))}
+.dim .line{font-size:12.5px;color:var(--ink)}
+.dim .trend{color:var(--muted);margin-top:auto;padding-top:4px;font-size:11px}
+.findings{border-top:2px solid var(--accent)}
+.finding{display:grid;grid-template-columns:150px minmax(0,1fr);gap:4px 24px;padding:16px 0;border-bottom:1px solid var(--rule)}
+.finding .kind{color:var(--bad);grid-row:1 / span 3;line-height:1.5}
+.finding blockquote{margin:0;font-family:var(--display);font-size:17px;line-height:1.4;color:var(--ink)}
+.finding .asked{display:block;font-family:var(--text);font-size:12px;color:var(--muted);margin-top:4px}
+.finding .check{font-size:13px;color:var(--muted);grid-column:2}
+.finding .meaning{font-size:14px;font-weight:700;color:var(--primary);grid-column:2}
+.fixes{margin:0;padding:0;list-style:none;border-top:2px solid var(--accent)}
+.fixes li{padding:10px 0 10px 16px;border-bottom:1px solid var(--rule);position:relative}
+.fixes li::before{content:"";position:absolute;left:0;top:1.15em;width:5px;height:5px;background:var(--accent)}
+.next{display:flex;gap:8px 20px;align-items:baseline;flex-wrap:wrap;border-top:2px solid var(--accent);padding-top:10px}
+.next .date{font-family:var(--display);font-size:26px;line-height:1;color:var(--primary)}
+.tablewrap{overflow-x:auto}
+table{border-collapse:collapse;width:100%;font-size:12.5px;min-width:620px}
+th,td{text-align:left;vertical-align:top;padding:8px 12px 8px 0;border-bottom:1px solid var(--rule)}
+th{color:var(--muted);border-bottom:1.5px solid var(--primary);font-size:11px;letter-spacing:.08em}
+tbody tr{transition:opacity .15s}
+pre{border:1px solid var(--rule);padding:12px 14px;font-size:12px;overflow-x:auto}
+.excerpt{border-left:3px solid var(--accent);padding:4px 12px;margin:8px 0;font-size:13px;color:var(--muted)}
+.excerpt b{color:var(--ink)}
+.note{font-size:13px;color:var(--muted)}
+footer{margin-top:40px;padding-top:10px;border-top:1px solid var(--rule);font-size:11.5px;color:var(--muted);display:flex;justify-content:space-between;gap:12px;flex-wrap:wrap}
+.dimmed{opacity:.18}
+@media (max-width:1000px){.dims{grid-template-columns:repeat(2,minmax(0,1fr))}.dim:nth-child(odd){padding-left:0;border-left:0}}
+@media (max-width:700px){
+  .page{padding:20px 16px 40px}h1{font-size:32px}
+  .dims{grid-template-columns:1fr}.dim,.dim+.dim{padding:12px 0;border-left:0}
+  .finding,.facts{grid-template-columns:1fr}.finding .kind{grid-row:auto}.finding .check,.finding .meaning{grid-column:1}
+}
+@media (prefers-reduced-motion:reduce){.e,tbody tr{transition:none}}
+@media print{body{background:#fff}.page{padding:0;max-width:none}.pick{display:none}.dimmed{opacity:1}}
+</style>
+</head>
+<body data-doc-state="approved">
+<div class="page">
+
+<div class="topline label"><span><b>{{ORG_NAME}}</b> · {{REPORT_NAME}}</span><span>{{RUN_TYPE}} run · {{RUN_DATE}}</span></div>
+
+<header class="mast">
+  <h1>{{CLIENT}}</h1>
+  <div class="state"><div class="band approved-band">Approved · {{APPROVED_BY}} · {{APPROVED_DATE}}</div><span>Reviewed by <b>{{REVIEWER}}</b> · {{REVIEW_DATETIME}}</span></div>
+  <dl class="facts">
+    <dt>Engines measured</dt><dd>{{ENGINES_MEASURED}}</dd>
+    <dt>Not measured</dt><dd>{{ENGINES_NOT_MEASURED}}</dd>
+  </dl>
+</header>
+
+<section>
+  <div class="sechead"><h2>Five dimensions</h2><div class="pick" id="pick" role="group" aria-label="Engine" hidden></div></div>
+  <!-- Each {{*_VALUE}} is one row for each engine measured, and nothing is added across engines. A row is:
+
+         <div class="e"><span class="who">ChatGPT</span><span class="v">named in <b>0 of 3</b> drug-class answers</span><span class="t" style="--n:0;--of:3"></span></div>
+
+       who: the engine's report label (leave the span out when one engine was measured).
+       v:   that engine's line, in words or as a count with what it is out of, the count itself in <b>.
+       t:   only when the line is one count out of a total: --n is the count, --of is the total. It draws the bar.
+            Leave it out for a line in words, or one with several counts ("4 wrong and 1 out of date").
+       NEVER a score out of 100, a grade, a percentage or an overall number.
+       {{*_TREND}} is "baseline" or "no comparison yet": runs are not compared yet. -->
+  <div class="dims">
+    <div class="dim"><div class="kicker">Presence</div><div class="val">{{PRESENCE_VALUE}}</div><div class="line">{{PRESENCE_LINE}}</div><div class="trend">{{PRESENCE_TREND}}</div></div>
+    <div class="dim"><div class="kicker">Accuracy</div><div class="val">{{ACCURACY_VALUE}}</div><div class="line">{{ACCURACY_LINE}}</div><div class="trend">{{ACCURACY_TREND}}</div></div>
+    <div class="dim"><div class="kicker">Framing</div><div class="val">{{FRAMING_VALUE}}</div><div class="line">{{FRAMING_LINE}}</div><div class="trend">{{FRAMING_TREND}}</div></div>
+    <div class="dim"><div class="kicker">Share of voice</div><div class="val">{{VOICE_VALUE}}</div><div class="line">{{VOICE_LINE}}</div><div class="trend">{{VOICE_TREND}}</div></div>
+    <div class="dim"><div class="kicker">Citations</div><div class="val">{{CITATIONS_VALUE}}</div><div class="line">{{CITATIONS_LINE}}</div><div class="trend">{{CITATIONS_TREND}}</div></div>
+  </div>
+</section>
+
+<section>
+  <h2>Three findings that matter</h2>
+  <div class="findings">
+    <article class="finding"><div class="kind">{{F1_KIND}}</div><blockquote>“{{F1_QUOTE}}”<span class="asked">{{F1_ENGINE}}</span></blockquote><div class="check">Checked against: {{F1_CHECK}}</div><div class="meaning">{{F1_MEANING}}</div></article>
+    <article class="finding"><div class="kind">{{F2_KIND}}</div><blockquote>“{{F2_QUOTE}}”<span class="asked">{{F2_ENGINE}}</span></blockquote><div class="check">Checked against: {{F2_CHECK}}</div><div class="meaning">{{F2_MEANING}}</div></article>
+    <article class="finding"><div class="kind">{{F3_KIND}}</div><blockquote>“{{F3_QUOTE}}”<span class="asked">{{F3_ENGINE}}</span></blockquote><div class="check">Checked against: {{F3_CHECK}}</div><div class="meaning">{{F3_MEANING}}</div></article>
+  </div>
+</section>
+
+<section>
+  <h2>Fix at the source</h2>
+  <ul class="fixes">{{FIX_ROWS}}</ul>
+</section>
+
+<section>
+  <h2>Next run</h2>
+  <div class="next"><div class="date">{{NEXT_RUN_DATE}}</div><div>{{NEXT_RUN_REASON}}</div></div>
+</section>
+
+<section>
+  <h2>Appendix · every question, every engine</h2>
+  <div class="tablewrap"><table id="answers">
+    <thead><tr><th>Question</th><th>Family</th><th>Engine</th><th>Client named</th><th>Accuracy</th><th>Framing</th></tr></thead>
+    <tbody>
+{{ROWS}}
+    </tbody>
+  </table></div>
+</section>
+
+<section>
+  <h2>Appendix · engine notes</h2>
+{{ENGINE_NOTES}}
+</section>
+
+<section>
+  <h2>Appendix · the words behind the findings</h2>
+{{EXCERPTS}}
+</section>
+
+<section>
+  <h2>Appendix · how this was measured</h2>
+{{LEDGER}}
+  <p class="note">Not measured, by decision: Gemini and Google AI Overviews.</p>
+  <p class="note">Gaps: {{GAPS}}</p>
+</section>
+
+<section>
+  <h2>Appendix · what travels onward</h2>
+  <h3>Outlets the engines cite</h3>
+  <div class="tablewrap"><table>
+    <thead><tr><th>Outlet</th><th>Engines citing it</th><th>Kind</th><th>Standing</th></tr></thead>
+    <tbody>
+<!-- one row per domain cited by two or more engines (with one engine measured: cited across two or more questions), plus one row each for the client's own site and any flagged source.
+     Standing column, plain words: "original trade reporting", "company release (wire)", "the client's own site: not an outlet to pursue",
+     "flagged this run for a manipulation attempt: not an outlet to pursue". -->
+{{OUTLET_ROWS}}
+    </tbody>
+  </table></div>
+  <h3>Companies the engines name that we do not track</h3>
+  <div class="tablewrap"><table>
+    <thead><tr><th>Company</th><th>Named by</th><th>In which questions</th></tr></thead>
+    <tbody>
+{{NAME_ROWS}}
+    </tbody>
+  </table></div>
+</section>
+
+<footer>
+  <span>{{REPORT_NAME}} · {{ORG_NAME}} · prepared {{RUN_DATE}}</span>
+  <span>Reviewed by {{REVIEWER}} · {{REVIEW_DATETIME}}</span>
+</footer>
+</div>
+<script>
+/* With two or more engines measured, a button for each: pressing one keeps that engine's rows lit in the
+   five cards and in the first appendix table, and dims the rest. Nothing is hidden, added up or fetched. */
+(function () {
+  var rows = [].slice.call(document.querySelectorAll(".dims .e"));
+  var names = [];
+  rows.forEach(function (r) {
+    var w = r.querySelector(".who");
+    r.engine = w ? w.textContent.trim() : "";
+    if (r.engine && names.indexOf(r.engine) < 0) names.push(r.engine);
+  });
+  var pick = document.getElementById("pick");
+  if (!pick || names.length < 2) return;
+  var answers = [].slice.call(document.querySelectorAll("#answers tbody tr"));
+  function show(name) {
+    rows.forEach(function (r) { r.classList.toggle("dimmed", !!name && r.engine !== name); });
+    answers.forEach(function (tr) {
+      var cell = tr.children[2];
+      tr.classList.toggle("dimmed", !!name && !!cell && cell.textContent.trim().indexOf(name) !== 0);
+    });
+    [].forEach.call(pick.children, function (b) { b.setAttribute("aria-pressed", String(b.engine === name)); });
+  }
+  [""].concat(names).forEach(function (name) {
+    var b = document.createElement("button");
+    b.type = "button";
+    b.engine = name;
+    b.textContent = name || "All engines";
+    b.addEventListener("click", function () { show(name); });
+    pick.appendChild(b);
+  });
+  pick.hidden = false;
+  show("");
+})();
+</script>
+</body>
+</html>

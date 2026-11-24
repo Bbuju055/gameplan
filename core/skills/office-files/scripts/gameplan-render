@@ -1,0 +1,1420 @@
+#!/usr/bin/env python3
+"""
+gameplan-render: the suite's one way to make an Office file. Standard library only, so a skill
+never installs a package to produce a deliverable.
+
+The model writes the approved content as a JSON file; this command lays it out the same way every
+time, fills the brand from the org config, sets the file's metadata, and runs the residue check
+before it hands the file over. It is on the Bash tool's PATH while core is enabled: type it bare.
+
+Usage
+  gameplan-render build --type daily-brief|alert-brief|quarterly-snapshot|clips-report|coverage-report|landscape-report
+                        --content <file.json> --root <gameplan root> --client <slug> --out <file.docx>
+                        [--decisions <briefs/YYYY-MM-DD/decisions.md>]
+  gameplan-render fill --template <agency .docx|.pptx> --content <file.json>
+                       --root <gameplan root> --client <slug> --out <file>
+  gameplan-render check <file.docx|.pptx|.csv|.html> --root <gameplan root> --client <slug>
+  gameplan-render read-xlsx <file.xlsx> [--sheet NAME]   (one sheet's rows, the first unless named; read-only)
+  gameplan-render clock --zone <America/New_York>        (the date and time in that zone, for a scheduled task)
+
+--client names the client folder the file is for; leave it out for work with no client folder (a
+keyword clips report, a list not linked to a client), and every client folder counts as another
+client in the residue check. The org config is <root>/org-config.yaml when it exists, else the core plugin's shipped default.
+Prints one JSON object. status is "ok" or "error" (with "reason"); on "error" no file is written.
+Exit 0 for both, 2 for bad arguments.
+"""
+import argparse, datetime, html, json, os, re, struct, sys, urllib.parse, zipfile, zlib
+
+SHIPPED_ORG_CONFIG = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "..", "..", "config", "org-config.yaml")
+UNSET = "TODO(org)"
+GRAY = "595959"  # small and secondary text; dark enough to read printed
+INK = "262626"
+GOOD, WARN, BAD = "1E7A4C", "A86200", "B3261E"  # status only, the same under every brand, always beside a word
+LABEL = "Verdana"  # small spaced capitals: the top line and the status marks
+PALE = 0.62  # how much white the brand color takes for a bar the title is not about
+TINT = 0.94  # how much white the brand color takes to become the ground behind a set-apart block
+# A status mark's shape says how sure, so it reads in black and white: (shape, color; None is the brand color).
+MARKS = {"firm": ("fill", None), "guided": ("single", None), "estimated": ("dashed", None), "speculative": ("dotted", GRAY),
+         "lapsed": ("single", BAD), "watch": ("single", WARN), "approved": ("fill", GOOD), "backed": ("single", GOOD)}
+HEX = re.compile(r"^[0-9A-Fa-f]{6}$")
+
+
+class RenderError(Exception):
+    """An expected failure the calling skill names to the user; no file is written."""
+
+
+# ---------------------------------------------------------------- org config
+
+def read_org_config(path):
+    """Read the `org:` and `brand:` sections of an org-config.yaml. Unset values come back None."""
+    try:
+        with open(path, encoding="utf-8") as fh:
+            lines = fh.read().splitlines()
+    except OSError as e:
+        raise RenderError("could not read the org config at %s: %s" % (path, e.strerror))
+    out, section, sub = {"org": {}, "brand": {}}, None, None
+    for n, line in enumerate(lines, 1):
+        if not line.strip() or line.lstrip().startswith("#"):
+            continue
+        indent = len(line) - len(line.lstrip(" "))
+        key, sep, rest = line.strip().partition(":")
+        if not sep:
+            continue
+        if indent == 0:
+            section, sub = (key if key in out else None), None
+            continue
+        if section is None:
+            continue
+        value = parse_scalar(rest, path, n)
+        if indent == 2 and value is None and not rest.split("#")[0].strip():
+            sub = key
+            out[section][sub] = {}
+        elif indent == 2:
+            sub = None
+            out[section][key] = value
+        elif indent == 4 and sub:
+            out[section][sub][key] = value
+    return out
+
+
+def parse_scalar(rest, path, n):
+    rest = rest.strip()
+    if rest.startswith('"'):
+        end = rest.find('"', 1)
+        if end < 0:
+            raise RenderError("the org config line %d in %s has an unclosed quote" % (n, path))
+        value = rest[1:end]
+    else:
+        value = rest.split("#")[0].strip()
+    return None if value in ("", UNSET) else value
+
+
+def resolve_org(root):
+    path = os.path.join(root, "org-config.yaml")
+    cfg = read_org_config(path if os.path.exists(path) else SHIPPED_ORG_CONFIG)
+    brand = cfg["brand"]
+    colors, fonts = brand.get("colors") or {}, brand.get("fonts") or {}
+    for k in ("primary", "accent"):
+        if not HEX.match(colors.get(k) or ""):
+            raise RenderError("brand color %s in the org config is not a six-digit hex value" % k)
+    for k in ("heading", "body"):
+        if not fonts.get(k):
+            raise RenderError("brand font %s in the org config is not set" % k)
+    return {"name": cfg["org"].get("name"), "footer": cfg["org"].get("confidential_footer"),
+            "primary": colors["primary"].upper(), "accent": colors["accent"].upper(),
+            "heading": fonts["heading"], "body": fonts["body"]}
+
+
+# ---------------------------------------------------------------- content validation
+
+def need(obj, key, kind, where):
+    if not isinstance(obj, dict) or key not in obj:
+        raise RenderError("the content file is missing %s%s" % (where, key))
+    v = obj[key]
+    if type(v) is not kind or (kind is str and not v.strip()):
+        raise RenderError("the content file's %s%s is not a %s" % (where, key, {str: "non-empty text", list: "list", dict: "group", bool: "true/false", int: "whole number"}[kind]))
+    return v
+
+
+def text_list(obj, key, where):
+    items = need(obj, key, list, where)
+    for i, s in enumerate(items):
+        if not isinstance(s, str) or not s.strip():
+            raise RenderError("the content file's %s%s[%d] is not non-empty text" % (where, key, i))
+    return items
+
+
+def load_content(path):
+    try:
+        with open(path, encoding="utf-8") as fh:
+            data = json.load(fh)
+    except OSError as e:
+        raise RenderError("could not read the content file %s: %s" % (path, e.strerror))
+    except ValueError as e:
+        raise RenderError("the content file %s is not valid JSON: %s" % (path, e))
+    if not isinstance(data, dict):
+        raise RenderError("the content file must hold one JSON object")
+    return data
+
+
+# ---------------------------------------------------------------- docx writer
+
+def esc(s):
+    return html.escape(s, quote=True)
+
+
+class Docx:
+    """A one-section Letter document built paragraph by paragraph."""
+
+    def __init__(self, org):
+        self.org, self.body, self.links, self.page_numbers = org, [], [], False
+        self.images, self.drawings = {}, 0
+
+    def run(self, text, size, font=None, bold=False, italic=False, color=None, underline=False):
+        p = ['<w:rFonts w:ascii="%s" w:hAnsi="%s" w:cs="%s"/>' % ((esc(font or self.org["body"]),) * 3)]
+        if bold:
+            p.append("<w:b/>")
+        if italic:
+            p.append("<w:i/>")
+        if color:
+            p.append('<w:color w:val="%s"/>' % color)
+        if underline:
+            p.append('<w:u w:val="single"%s/>' % (' w:color="%s"' % underline if isinstance(underline, str) else ""))
+        p.append('<w:sz w:val="%d"/>' % round(size * 2))
+        return '<w:r><w:rPr>%s</w:rPr><w:t xml:space="preserve">%s</w:t></w:r>' % ("".join(p), esc(text))
+
+    def link(self, text, url, size, bold=False, quiet=False):
+        if not re.match(r"^https?://\S+$", url.strip()):
+            raise RenderError("a link in the content file is not a web address (it must start with http:// or https://): %s" % url[:80])
+        self.links.append(url)
+        rid = "rIdL%d" % len(self.links)
+        # quiet: a headline is a link, and a light underline says so without shouting it
+        return '<w:hyperlink r:id="%s">%s</w:hyperlink>' % (rid, self.run(text, size, bold=bold, color=self.org["primary"], underline="D9D9D9" if quiet else True))
+
+    def para_xml(self, runs, after=6, align=None, rule=None, box=None, keep=False, numbered=False, before=0, over=None,
+                 shade=None, edge=None, right_tab=False):
+        """One paragraph. `shade` tints the ground behind it, `edge` draws a thick rule down its left side,
+        `right_tab` lets a tab in the runs push what follows to the right margin."""
+        p = []
+        if keep:
+            p.append("<w:keepNext/>")
+        if numbered:
+            p.append('<w:numPr><w:ilvl w:val="0"/><w:numId w:val="1"/></w:numPr>')
+        if rule or box or over or edge:
+            c = rule or box or over
+            sides = ["bottom"] if rule else ["top"] if over else ["top", "left", "bottom", "right"] if box else []
+            lines = {s: '<w:%s w:val="single" w:sz="6" w:space="2" w:color="%s"/>' % (s, c) for s in sides}
+            if edge:
+                lines["left"] = '<w:left w:val="single" w:sz="24" w:space="8" w:color="%s"/>' % edge
+            p.append("<w:pBdr>%s</w:pBdr>" % "".join(lines[s] for s in ("top", "left", "bottom", "right") if s in lines))
+        if shade:
+            p.append('<w:shd w:val="clear" w:color="auto" w:fill="%s"/>' % shade)
+        if right_tab:
+            p.append('<w:tabs><w:tab w:val="right" w:pos="9360"/></w:tabs>')
+        p.append('<w:spacing w:before="%d" w:after="%d"/>' % (before * 20, after * 20))
+        if align:
+            p.append('<w:jc w:val="%s"/>' % align)
+        return "<w:p><w:pPr>%s</w:pPr>%s</w:p>" % ("".join(p), "".join(runs))
+
+    def para(self, runs, **kw):
+        self.body.append(self.para_xml(runs, **kw))
+
+    def label(self, text, color, bold=False):
+        """Small spaced capitals, for the top line: drawn in capitals, stored as written."""
+        return ('<w:r><w:rPr><w:rFonts w:ascii="%s" w:hAnsi="%s" w:cs="%s"/>%s<w:caps/><w:color w:val="%s"/><w:spacing w:val="20"/><w:sz w:val="15"/></w:rPr>'
+                '<w:t xml:space="preserve">%s</w:t></w:r>' % (LABEL, LABEL, LABEL, "<w:b/>" if bold else "", color, esc(text)))
+
+    def mark(self, word, kind):
+        """A status word as a mark: filled, outlined, dashed or dotted by `kind` (a key of MARKS). The word is
+        stored as it was given and drawn in capitals."""
+        shape, color = MARKS[kind]
+        color = color or self.org["primary"]
+        filled = shape == "fill"
+        edge = '<w:bdr w:val="%s" w:sz="4" w:space="1" w:color="%s"/>' % ("single" if filled else shape, color)
+        fill = '<w:shd w:val="clear" w:color="auto" w:fill="%s"/>' % color if filled else ""
+        return ('<w:r><w:rPr><w:rFonts w:ascii="%s" w:hAnsi="%s" w:cs="%s"/><w:b/><w:caps/><w:color w:val="%s"/><w:sz w:val="14"/>%s%s</w:rPr>'
+                '<w:t xml:space="preserve">%s</w:t></w:r>' % (LABEL, LABEL, LABEL, "FFFFFF" if filled else color, edge, fill, esc(word)))
+
+    def masthead(self, doc_type, state=None, note=None):
+        """The top line of every document: the agency and what this is on the left; on the right its state,
+        a (word, kind) mark, or a plain note such as the date."""
+        o = self.org
+        runs = [self.label(o["name"], o["primary"], bold=True), self.label("  \u00b7  ", GRAY)] if o["name"] else []
+        runs.append(self.label(doc_type, GRAY))
+        if state or note:
+            runs.append("<w:r><w:tab/></w:r>")
+            runs.append(self.mark(*state) if state else self.label(note, GRAY))
+        self.para(runs, after=14, rule="D9D9D9", right_tab=True)
+
+    def labelled(self, rows):
+        """The body of a page as rows a finger can run down: each row is (label, paragraphs, kind), the label
+        on the left, its paragraphs (lists of runs) as bullets on the right; a paragraph given as finished XML
+        (from `para_xml`) is set as it is, for a line that is not a bullet. `kind` "risk" tints the row and
+        edges it in the fixed red; "good" edges it in the fixed green; None is a plain row. The accent rule
+        opens the block and a light rule closes each row."""
+        o = self.org
+        edges = {"risk": BAD, "good": GOOD}
+        trs = []
+        for label, paragraphs, kind in rows:
+            shade = '<w:shd w:val="clear" w:color="auto" w:fill="%s"/>' % tint(o["primary"], TINT) if kind == "risk" else ""
+            left = '<w:tcBorders><w:left w:val="single" w:sz="24" w:space="0" w:color="%s"/></w:tcBorders>' % edges[kind] if kind else ""
+            name = self.para_xml([self.run(label, 10, bold=True, color=BAD if kind == "risk" else o["primary"])], after=0)
+            content = "".join(runs if isinstance(runs, str) else self.para_xml(runs, after=3, numbered=True) for runs in paragraphs)
+            trs.append('<w:tr><w:tc><w:tcPr><w:tcW w:w="2200" w:type="dxa"/>%s%s</w:tcPr>%s</w:tc>'
+                       '<w:tc><w:tcPr><w:tcW w:w="7160" w:type="dxa"/>%s</w:tcPr>%s</w:tc></w:tr>' % (left, shade, name, shade, content))
+        borders = ('<w:top w:val="single" w:sz="12" w:space="0" w:color="%s"/><w:bottom w:val="single" w:sz="4" w:space="0" w:color="D9D9D9"/>'
+                   '<w:insideH w:val="single" w:sz="4" w:space="0" w:color="D9D9D9"/>' % o["accent"])
+        margin = '<w:tblCellMar><w:top w:w="140" w:type="dxa"/><w:left w:w="120" w:type="dxa"/><w:bottom w:w="120" w:type="dxa"/><w:right w:w="120" w:type="dxa"/></w:tblCellMar>'
+        self.body.append('<w:tbl><w:tblPr><w:tblW w:w="9360" w:type="dxa"/><w:tblBorders>%s</w:tblBorders><w:tblLayout w:type="fixed"/>%s</w:tblPr>'
+                         '<w:tblGrid><w:gridCol w:w="2200"/><w:gridCol w:w="7160"/></w:tblGrid>%s</w:tbl>' % (borders, margin, "".join(trs)))
+        self.para([], after=4)
+
+    def text(self, s, size, after=6, **kw):
+        style = {k: kw.pop(k) for k in ("font", "bold", "italic", "color") if k in kw}
+        self.para([self.run(s, size, **style)], after=after, **kw)
+
+    def table(self, rows, widths=None):
+        """A full-width table: a header row of small labels over a rule in the brand color, then light rules between
+        rows. A cell is text or a list of runs; `widths` are the columns' shares of the page width."""
+        cols = len(rows[0])
+        widths = widths or [1.0 / cols] * cols
+        grid = [int(9360 * w) for w in widths]
+        edge = "".join('<w:%s w:val="single" w:sz="4" w:space="0" w:color="D9D9D9"/>' % e for e in ("bottom", "insideH"))
+        margin = '<w:tblCellMar><w:top w:w="60" w:type="dxa"/><w:left w:w="100" w:type="dxa"/><w:bottom w:w="60" w:type="dxa"/><w:right w:w="100" w:type="dxa"/></w:tblCellMar>'
+        trs = []
+        for i, row in enumerate(rows):
+            rule = '<w:tcBorders><w:bottom w:val="single" w:sz="8" w:space="0" w:color="%s"/></w:tcBorders>' % self.org["primary"] if i == 0 else ""
+            cells = "".join('<w:tc><w:tcPr><w:tcW w:w="%d" w:type="dxa"/>%s</w:tcPr><w:p><w:pPr><w:spacing w:before="0" w:after="0"/></w:pPr>%s</w:p></w:tc>'
+                            % (grid[j], rule, (self.label(cell, GRAY, bold=True) if i == 0 else self.run(cell, 9.5))
+                               if isinstance(cell, str) else "".join(cell)) for j, cell in enumerate(row))
+            trs.append("<w:tr>%s</w:tr>" % cells)
+        self.body.append('<w:tbl><w:tblPr><w:tblW w:w="9360" w:type="dxa"/><w:tblLayout w:type="fixed"/><w:tblBorders>%s</w:tblBorders>%s</w:tblPr><w:tblGrid>%s</w:tblGrid>%s</w:tbl>'
+                         % (edge, margin, "".join('<w:gridCol w:w="%d"/>' % g for g in grid), "".join(trs)))
+        self.para([], after=4)
+
+    # ---- the client-report pieces: cover, opening summary, section titles, bar charts
+
+    def cover(self, doc_type, title, subtitle, date):
+        """The top line (what the document is, and its date), the client's name large, then its period or
+        campaign over the accent rule."""
+        o = self.org
+        self.masthead(doc_type, note=date)
+        self.text(title, 26, after=4, font=o["heading"], color=o["primary"])
+        self.text(subtitle, 11, after=16, color=INK, rule=o["accent"])
+
+    def lead(self, sentences):
+        """The summary that opens the document, in the heading face: sentences of (text, emphasized) parts,
+        the figures bold in the brand color."""
+        for parts in sentences:
+            self.para([self.run(text, 13, font=self.org["heading"], bold=strong, color=self.org["primary"] if strong else INK) for text, strong in parts], after=6)
+
+    def heading(self, title):
+        """A section's title, the sentence its chart proves, under a light rule that separates it from the last."""
+        self.text(title, 11, after=8, before=22, bold=True, color=self.org["primary"], keep=True, over="D9D9D9")
+
+    def bar_image(self, width_twips, color, label):
+        """An inline picture of one solid color, `width_twips` wide: a bar every viewer draws to scale."""
+        if color not in self.images:
+            self.images[color] = "rIdImg%d" % (len(self.images) + 1)
+        self.drawings += 1
+        cx, cy = width_twips * 635, 150000
+        return ('<w:r><w:drawing><wp:inline distT="0" distB="0" distL="0" distR="0"><wp:extent cx="%d" cy="%d"/>'
+                '<wp:docPr id="%d" name="Bar %d" descr="%s"/><a:graphic xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main">'
+                '<a:graphicData uri="http://schemas.openxmlformats.org/drawingml/2006/picture"><pic:pic xmlns:pic="http://schemas.openxmlformats.org/drawingml/2006/picture">'
+                '<pic:nvPicPr><pic:cNvPr id="%d" name="Bar %d"/><pic:cNvPicPr/></pic:nvPicPr><pic:blipFill><a:blip r:embed="%s"/><a:stretch><a:fillRect/></a:stretch></pic:blipFill>'
+                '<pic:spPr><a:xfrm><a:off x="0" y="0"/><a:ext cx="%d" cy="%d"/></a:xfrm><a:prstGeom prst="rect"><a:avLst/></a:prstGeom></pic:spPr></pic:pic>'
+                '</a:graphicData></a:graphic></wp:inline></w:drawing></w:r>'
+                % (cx, cy, self.drawings, self.drawings, esc(label), self.drawings, self.drawings, self.images[color], cx, cy))
+
+    def bars(self, rows, highlight=()):
+        """Horizontal bars, one per (label, value): the label on the left, the bar to scale, the value after it.
+        A chart has one color: a bar in `highlight` (the one the section's title is about) is the brand
+        color at full strength, and every other bar is the same color made pale."""
+        top = max([v for _, v in rows] + [1])
+        color = lambda label, value: self.org["primary"] if label in highlight else tint(self.org["primary"], PALE)
+        trs = "".join('<w:tr><w:tc><w:tcPr><w:tcW w:w="3120" w:type="dxa"/><w:vAlign w:val="center"/></w:tcPr><w:p><w:pPr><w:spacing w:before="40" w:after="40"/></w:pPr>%s</w:p></w:tc>'
+                      '<w:tc><w:tcPr><w:tcW w:w="6240" w:type="dxa"/><w:vAlign w:val="center"/></w:tcPr><w:p><w:pPr><w:spacing w:before="40" w:after="40"/></w:pPr>%s%s</w:p></w:tc></w:tr>'
+                      % (self.run(label, 9), self.bar_image(max(60, 5200 * value // top), color(label, value), "%s: %d" % (label, value)) if value else "",
+                         self.run("  %d" % value, 9, bold=True)) for label, value in rows)
+        self.body.append('<w:tbl><w:tblPr><w:tblW w:w="9360" w:type="dxa"/><w:tblLayout w:type="fixed"/></w:tblPr>'
+                         '<w:tblGrid><w:gridCol w:w="3120"/><w:gridCol w:w="6240"/></w:tblGrid>%s</w:tbl>' % trs)
+
+    def split_bar(self, parts):
+        """One 100% bar of (label, value, fill) segments with a gap between them, and a legend carrying the counts."""
+        total = sum(v for _, v, _ in parts) or 1
+        runs = []
+        for label, value, fill in parts:
+            if value:
+                if runs:
+                    runs.append(self.bar_image(40, "FFFFFF", "gap"))
+                runs.append(self.bar_image(9000 * value // total, fill, "%s: %d" % (label, value)))
+        self.para(runs, after=2)
+        self.para(sum(([self.run("\u25A0 ", 10, color=fill), self.run("%s %d     " % (label, v), 9)] for label, v, fill in parts), []), after=0)
+
+    def save(self, path, title, footer_text):
+        o = self.org
+        rels = ['<Relationship Id="rIdStyles" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/styles" Target="styles.xml"/>',
+                '<Relationship Id="rIdNumbering" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/numbering" Target="numbering.xml"/>']
+        rels += ['<Relationship Id="rIdL%d" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/hyperlink" Target="%s" TargetMode="External"/>' % (i, esc(u)) for i, u in enumerate(self.links, 1)]
+        rels += ['<Relationship Id="%s" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/image" Target="media/%s.png"/>' % (rid, color) for color, rid in self.images.items()]
+        footer_ref, has_footer = "", bool(footer_text or self.page_numbers)
+        if has_footer:
+            rels.append('<Relationship Id="rIdFooter" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/footer" Target="footer1.xml"/>')
+            footer_ref = '<w:footerReference w:type="default" r:id="rIdFooter"/>'
+        ns = ('xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships" '
+              'xmlns:wp="http://schemas.openxmlformats.org/drawingml/2006/wordprocessingDrawing"')
+        sect = ('<w:sectPr>%s<w:pgSz w:w="12240" w:h="15840"/>'
+                '<w:pgMar w:top="1440" w:right="1440" w:bottom="1440" w:left="1440" w:header="720" w:footer="720" w:gutter="0"/></w:sectPr>' % footer_ref)
+        parts = {
+            "[Content_Types].xml": CONTENT_TYPES_DOCX % ('<Override PartName="/word/footer1.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.footer+xml"/>' if has_footer else ""),
+            "_rels/.rels": ROOT_RELS % "word/document.xml",
+            "docProps/core.xml": core_props(title, o["name"]),
+            "docProps/app.xml": APP_PROPS % "Microsoft Office Word",
+            "word/document.xml": '<?xml version="1.0" encoding="UTF-8" standalone="yes"?><w:document %s><w:body>%s%s</w:body></w:document>' % (ns, "".join(self.body), sect),
+            "word/_rels/document.xml.rels": RELS % "".join(rels),
+            "word/styles.xml": STYLES % ((esc(o["body"]),) * 3),
+            "word/numbering.xml": NUMBERING,
+        }
+        for color in self.images:
+            parts["word/media/%s.png" % color] = solid_png(color)
+        if has_footer:
+            runs = [self.run(footer_text + ("  ·  " if self.page_numbers else ""), 8, color=GRAY)] if footer_text else []
+            if self.page_numbers:
+                runs.append('<w:fldSimple w:instr=" PAGE ">%s</w:fldSimple>' % self.run("1", 8, color=GRAY))
+            parts["word/footer1.xml"] = '<?xml version="1.0" encoding="UTF-8" standalone="yes"?><w:ftr %s><w:p><w:pPr><w:jc w:val="center"/></w:pPr>%s</w:p></w:ftr>' % (ns, "".join(runs))
+        write_package(path, parts)
+
+
+def label_color(org):
+    """The color for small accent labels: the accent while it reads on white, else the brand color. A pale
+    accent still draws rules; only words need the contrast (4.5 to 1, the usual bar for text)."""
+    def channel(c):
+        c /= 255
+        return c / 12.92 if c <= 0.03928 else ((c + 0.055) / 1.055) ** 2.4
+    r, g, b = (channel(c) for c in bytes.fromhex(org["accent"]))
+    return org["accent"] if 1.05 / (0.2126 * r + 0.7152 * g + 0.0722 * b + 0.05) >= 4.5 else org["primary"]
+
+
+def tint(hex_color, white):
+    """The color mixed with `white` (0 to 1) of white, as hex."""
+    rgb = bytes.fromhex(hex_color)
+    return "".join("%02X" % round(c + (255 - c) * white) for c in rgb)
+
+
+def solid_png(hex_color):
+    """A 1x1 PNG of one color, stretched by Word into a bar."""
+    chunk = lambda kind, data: struct.pack(">I", len(data)) + kind + data + struct.pack(">I", zlib.crc32(kind + data) & 0xFFFFFFFF)
+    return (b"\x89PNG\r\n\x1a\n" + chunk(b"IHDR", struct.pack(">IIBBBBB", 1, 1, 8, 2, 0, 0, 0))
+            + chunk(b"IDAT", zlib.compress(b"\x00" + bytes.fromhex(hex_color))) + chunk(b"IEND", b""))
+
+
+def core_props(title, org_name):
+    now = datetime.datetime.now(datetime.timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+    who = esc(org_name or "")
+    return ('<?xml version="1.0" encoding="UTF-8" standalone="yes"?><cp:coreProperties xmlns:cp="http://schemas.openxmlformats.org/package/2006/metadata/core-properties" '
+            'xmlns:dc="http://purl.org/dc/elements/1.1/" xmlns:dcterms="http://purl.org/dc/terms/" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">'
+            '<dc:title>%s</dc:title><dc:creator>%s</dc:creator><cp:lastModifiedBy>%s</cp:lastModifiedBy>'
+            '<dcterms:created xsi:type="dcterms:W3CDTF">%s</dcterms:created><dcterms:modified xsi:type="dcterms:W3CDTF">%s</dcterms:modified></cp:coreProperties>'
+            % (esc(title), who, who, now, now))
+
+
+def write_package(path, parts):
+    with zipfile.ZipFile(path, "w", zipfile.ZIP_DEFLATED) as z:
+        for name in sorted(parts, key=lambda n: n != "[Content_Types].xml"):
+            z.writestr(name, parts[name])
+
+
+CONTENT_TYPES_DOCX = ('<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types">'
+                      '<Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/><Default Extension="xml" ContentType="application/xml"/>'
+                      '<Default Extension="png" ContentType="image/png"/>'
+                      '<Override PartName="/word/document.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.document.main+xml"/>'
+                      '<Override PartName="/word/styles.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.styles+xml"/>'
+                      '<Override PartName="/word/numbering.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.numbering+xml"/>%s'
+                      '<Override PartName="/docProps/core.xml" ContentType="application/vnd.openxmlformats-package.core-properties+xml"/>'
+                      '<Override PartName="/docProps/app.xml" ContentType="application/vnd.openxmlformats-officedocument.extended-properties+xml"/></Types>')
+ROOT_RELS = ('<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">'
+             '<Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="%s"/>'
+             '<Relationship Id="rId2" Type="http://schemas.openxmlformats.org/package/2006/relationships/metadata/core-properties" Target="docProps/core.xml"/>'
+             '<Relationship Id="rId3" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/extended-properties" Target="docProps/app.xml"/></Relationships>')
+RELS = '<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">%s</Relationships>'
+APP_PROPS = ('<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Properties xmlns="http://schemas.openxmlformats.org/officeDocument/2006/extended-properties">'
+             '<Application>%s</Application></Properties>')
+STYLES = ('<?xml version="1.0" encoding="UTF-8" standalone="yes"?><w:styles xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main">'
+          '<w:docDefaults><w:rPrDefault><w:rPr><w:rFonts w:ascii="%s" w:hAnsi="%s" w:cs="%s"/><w:sz w:val="21"/></w:rPr></w:rPrDefault>'
+          '<w:pPrDefault><w:pPr><w:spacing w:after="120"/></w:pPr></w:pPrDefault></w:docDefaults>'
+          '<w:style w:type="paragraph" w:default="1" w:styleId="Normal"><w:name w:val="Normal"/></w:style></w:styles>')
+NUMBERING = ('<?xml version="1.0" encoding="UTF-8" standalone="yes"?><w:numbering xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main">'
+             '<w:abstractNum w:abstractNumId="0"><w:lvl w:ilvl="0"><w:start w:val="1"/><w:numFmt w:val="bullet"/><w:lvlText w:val="•"/><w:lvlJc w:val="left"/>'
+             '<w:pPr><w:ind w:left="360" w:hanging="240"/></w:pPr></w:lvl></w:abstractNum><w:num w:numId="1"><w:abstractNumId w:val="0"/></w:num></w:numbering>')
+
+
+# ---------------------------------------------------------------- layouts
+
+# The only gap lines a client brief may carry: one sentence per missing source, the same sentences as
+# the table in the daily-brief plugin's signal-gather skill ("A gap in the brief"). Why a source was
+# missing stays in the decisions log's Source record, which this command never reads.
+BRIEF_GAP_SENTENCES = (
+    "The news feed was not available for this brief. Its stories come from web search, which can miss stories a feed would catch.",
+    "Part of the news feed was not available for this brief. Those searches were run on the web instead.",
+    "Scored mentions and alerts were not available for this brief.",
+    "The trial registry was not checked directly for this brief.",
+    "Web search was not available for this brief.",
+)
+# A monitoring service the agency connected, by its name ("Meltwater was not available for this brief.").
+BRIEF_GAP_SERVICE = re.compile(r"^(?!(?:radar|newsdata)\b)[A-Z][A-Za-z&.' -]{1,39} was not available for this brief\.$", re.I)
+
+
+# A reviewer tag from the draft's `flags` field (story-curate's hand-off contract). A Signal line is
+# the sentence the client reads and never carries one.
+SIGNAL_REVIEWER_TAG = re.compile(r"⚠|\[\s*(?:claim:|catalyst:|inherited-risk|tier-\?)", re.I)
+
+
+def brief_signal(s, where):
+    """A story's Signal line; one carrying a reviewer tag stops the build."""
+    signal = need(s, "signal", str, where)
+    if SIGNAL_REVIEWER_TAG.search(signal):
+        raise RenderError("the content file's %ssignal carries a reviewer tag; the Signal line holds only the sentence "
+                          "the client reads, and the tag stays in the draft's flags" % where)
+    return signal
+
+
+def brief_sources(m):
+    """The sources that ran, without the "Sources run:" label: the file prints the label itself, once,
+    whether or not the content file gave it."""
+    names = re.sub(r"(?i)^\s*sources run:\s*", "", need(m, "sources_run", str, "method.")).strip()
+    if not names:
+        raise RenderError("the content file's method.sources_run names no source")
+    return names
+
+
+def brief_gaps(m):
+    """The method note's gap lines, each one of the fixed sentences; anything else stops the build."""
+    gaps = text_list(m, "gaps", "method.")
+    for i, g in enumerate(gaps):
+        line = gap_text(g)
+        if line not in BRIEF_GAP_SENTENCES and not BRIEF_GAP_SERVICE.match(line):
+            raise RenderError("the content file's method.gaps[%d] is not one of the brief's gap sentences (the daily-brief "
+                              "plugin's signal-gather skill lists them); use the sentence for that source, and an empty "
+                              "list when nothing was missing" % i)
+    return gaps
+
+
+def layout_daily_brief(c, org, alert_time=None):
+    """templates/daily-brief.md in the daily-brief plugin."""
+    client = need(c, "client", str, "")
+    start, end, prepared = (need(c, k, str, "") for k in ("window_start", "window_end", "prepared_date"))
+    cats = need(c, "categories", list, "")
+    m = need(c, "method", dict, "")
+    d = Docx(org)
+    accent_label = label_color(org)
+    if alert_time:
+        d.masthead("Alert addendum", note="%s %s" % (prepared, alert_time))
+    else:
+        d.masthead("Daily Media Brief", note=prepared)
+    d.text(client, 26, after=4, font=org["heading"], color=org["primary"])
+    d.text("Coverage: %s to %s · Prepared %s" % (start, end, prepared), 9, after=10, color=GRAY)
+    for i, cat in enumerate(cats):
+        w = "categories[%d]." % i
+        d.para([d.label(need(cat, "name", str, w), accent_label, bold=True)], after=6, before=12, keep=True, over=org["accent"])
+        stories = need(cat, "stories", list, w)
+        if not stories:
+            d.text(need(cat, "empty_line", str, w), 10, after=10, color=GRAY)
+        for j, s in enumerate(stories):
+            sw = "%sstories[%d]." % (w, j)
+            d.para([d.link(need(s, "headline", str, sw), need(s, "url", str, sw), 11.5, bold=True, quiet=True)], after=3, keep=True)
+            d.text(need(s, "summary", str, sw), 10, after=2)
+            src = "%s · %s" % (need(s, "source", str, sw), need(s, "date", str, sw))
+            others = s.get("also_carried_by", 0)
+            if type(others) is not int or others < 0:
+                raise RenderError("the content file's %salso_carried_by is not a whole number" % sw)
+            if others:
+                src += " · also carried by %d other outlet%s" % (others, "" if others == 1 else "s")
+            d.text(src, 8.5, after=5, color=GRAY)
+            d.para([d.label("Signal: ", accent_label, bold=True), d.run(brief_signal(s, sw), 10)], after=14, edge=org["accent"])
+    d.para([d.label("About this brief", GRAY, bold=True)], after=4, before=14, keep=True, over="D9D9D9")
+    d.text("Sources run: " + brief_sources(m), 9, after=2)
+    gaps = brief_gaps(m)
+    for g in gaps:
+        d.text(g, 9, after=2)
+    d.text("Story counts: %d included of %d candidates reviewed." % (need(m, "included", int, "method."), need(m, "candidates", int, "method.")), 9, after=2)
+    # method.accepted_flags, from an older content file, is accepted and never printed: the client's
+    # file does not say which claims were accepted (the decisions log and the claims ledger do)
+    d.text("Prepared with AI assistance. Reviewed and approved by %s, %s." % (need(m, "approver", str, "method."), need(m, "approved_at", str, "method.")), 9, after=2)
+    return d, "%s Daily Media Brief %s" % (client, prepared), org["footer"], gaps
+
+
+def layout_quarterly_snapshot(c, org):
+    """templates/quarterly-snapshot.md in the competitive-intel plugin."""
+    client, quarter, prepared = (need(c, k, str, "") for k in ("client", "quarter", "prepared_date"))
+    approved = c.get("approved")
+    ms, nq = need(c, "milestones", dict, ""), need(c, "next_quarter", dict, "")
+    activity = need(c, "activity", list, "")
+    d = Docx(org)
+    sub = lambda s: d.para_xml([d.run(s, 10, bold=True, color=org["primary"])], after=2, before=2, keep=True)
+    plain = lambda s: d.para_xml([d.run(s, 10)], after=2)
+    item = lambda s: [d.run(s, 10)]
+    d.masthead("Activities snapshot", state=("DRAFT FOR REVIEW", "watch") if approved is None else None)
+    d.text(client, 26, after=4, font=org["heading"], color=org["primary"])
+    d.text("%s activities snapshot" % quarter, 11, after=3, color=INK)
+    d.text("Prepared %s" % prepared, 9, after=6 if approved else 14, color=GRAY)
+    if approved is not None:
+        d.para([d.mark("Reviewed and approved", "approved"), d.run(" by %s, %s · v%d" % (need(approved, "name", str, "approved."), need(approved, "date", str, "approved."), need(approved, "version", int, "approved.")), 9, color=GRAY)], after=14)
+    milestones, did, coming = [], [], []
+    own, field = text_list(ms, "client", "milestones."), text_list(ms, "field", "milestones.")
+    if not own and not field:
+        milestones.append(plain("No dated milestones this quarter."))
+    for label, rows in ((client, own), ("The field", field)):
+        if rows:
+            milestones.append(sub(label))
+            milestones += [item(r) for r in rows]
+    for i, g in enumerate(activity):
+        rows = text_list(g, "lines", "activity[%d]." % i)
+        # a group name that already ends with a count loses it: the file prints one count, the lines it shows
+        name = re.sub(r"\s*\(\d+\)\s*$", "", need(g, "group", str, "activity[%d]." % i))
+        did.append(sub("%s (%d)" % (name, len(rows))))
+        did += [item(r) for r in rows]
+    if not activity:
+        did.append(plain("No activity recorded this quarter."))
+    elif c.get("activity_absent_line"):
+        did.append(plain(need(c, "activity_absent_line", str, "")))
+    events, deadlines = text_list(nq, "events", "next_quarter."), text_list(nq, "deadlines", "next_quarter.")
+    coming += [item(r) for r in events + deadlines]
+    if not events and not deadlines:
+        coming.append(plain("Nothing dated next quarter yet."))
+    d.labelled([("Milestones this quarter", milestones, None), ("What we did", did, None), ("Coming next quarter", coming, None)])
+    d.text("Drawn from the client's calendar and activity log as of %s." % prepared, 8, after=0, color=GRAY)
+    return d, "%s %s activities snapshot" % (client, quarter), org["footer"], None
+
+
+def layout_alert_brief(c, org):
+    """The daily brief's layout as an off-cycle addendum: one category, dated and timed (brief-run's alert path)."""
+    if len(need(c, "categories", list, "")) != 1:
+        raise RenderError("an alert addendum carries exactly one category")
+    d, _, footer, gaps = layout_daily_brief(c, org, alert_time=need(c, "alert_time", str, ""))
+    return d, "%s alert addendum %s %s" % (c["client"], c["prepared_date"], c["alert_time"]), footer, gaps
+
+
+# tone is status, so it takes the fixed status colors, never the brand's
+TONE = (("Positive", "positive", GOOD), ("Neutral", "neutral", "D4D4D4"), ("Mixed", "mixed", "8C8C8C"), ("Negative", "negative", BAD))
+
+
+def listed(labels):
+    """Labels as they read in a sentence: "a", "a and b", "a, b and c"."""
+    return labels[0] if len(labels) == 1 else "%s and %s" % (", ".join(labels[:-1]), labels[-1])
+
+
+def most(pairs):
+    """The label(s) holding the largest count, that count, and how many labels share it."""
+    top = max(v for _, v in pairs)
+    leaders = [k for k, v in pairs if v == top]
+    return listed(leaders), top, len(leaders)
+
+
+def pairs_of(g, key, where):
+    pairs = need(g, key, list, where)
+    for i, p in enumerate(pairs):
+        if not (isinstance(p, list) and len(p) == 2 and type(p[0]) is str and type(p[1]) is int):
+            raise RenderError("the content file's %s%s[%d] is not a [text, whole number] pair" % (where, key, i))
+    return [tuple(p) for p in pairs]
+
+
+def cap(s):
+    return s[:1].upper() + s[1:]
+
+
+def plural(n, word):
+    return "%d %s%s" % (n, word, "" if n == 1 else "s")
+
+
+def layout_clips_report(c, org):
+    """templates/clips-report.md in the daily-brief plugin: a client-ready document, nothing about the run."""
+    subject, start, end, prepared = (need(c, k, str, "") for k in ("subject", "period_start", "period_end", "prepared_date"))
+    need(c, "approver", str, "")  # the approval the file rests on; never printed
+    g = need(c, "at_a_glance", dict, "")
+    total, driven, organic = (need(g, k, int, "at_a_glance.") for k in ("total", "agency_driven", "organic"))
+    tone = need(g, "tone", dict, "at_a_glance.")
+    tones = [(label, need(tone, key, int, "at_a_glance.tone."), fill) for label, key, fill in TONE]
+    positive, negative = tones[0][1], tones[3][1]
+    types = sorted(pairs_of(g, "by_outlet_type", "at_a_glance."), key=lambda p: -p[1])
+    months = pairs_of(g, "by_month", "at_a_glance.") if g.get("by_month") else []
+    msgs = [] if "top_messages_omitted" in g else sorted(pairs_of(g, "top_messages", "at_a_glance."), key=lambda p: -p[1])
+
+    if total < 1:
+        raise RenderError("a coverage report needs at least one clip; with none found, say so in the conversation and build no file")
+    one = total == 1  # one clip reads in the singular throughout
+    carried = msgs if msgs and msgs[0][1] > 0 else []  # a message no clip carried is left out
+
+    d = Docx(org)
+    d.page_numbers = True
+    d.cover("Coverage report", subject, "%s to %s" % (start, end), prepared)
+    first = [("From %s to %s, %s earned " % (start, end, subject), False), (plural(total, "clip"), True)]
+    if one:
+        first += [(", through the agency's own outreach." if driven else ", not through the agency's own outreach.", False)]
+    else:
+        share = "none" if driven == 0 else "all" if driven == total else str(driven)
+        first += [(", ", False), (share, True), (" of them through the agency's own outreach.", False)]
+    second = []
+    if types:
+        t_lead, t_top, t_ties = most(types)
+        if one:
+            types_title = "ran in %s %s outlet" % ("an" if t_lead[:1] in "aeiou" else "a", t_lead)
+            second = [("It %s." % types_title, False)]
+            types_title = "The 1 clip " + types_title
+        elif t_top == total:
+            second = [("All of them ran in %s outlets." % t_lead, False)]
+            types_title = "All %d clips ran in %s outlets" % (total, t_lead)
+        elif t_ties > 1:
+            second = [("%s outlets each carried " % cap(t_lead), False), ("%d of %d" % (t_top, total), True), (".", False)]
+            types_title = "%s outlets each carried %d of %d clips" % (cap(t_lead), t_top, total)
+        else:
+            second = [("%s outlets carried the most, " % cap(t_lead), False), ("%d of %d" % (t_top, total), True), (".", False)]
+            types_title = "%s outlets carried the most clips: %d of %d" % (cap(t_lead), t_top, total)
+    if months:
+        m_lead, m_top, _ = most(months)
+        second += [(" Coverage peaked in %s." % m_lead, False)]
+    if one:
+        tone_said = "positive in tone" if positive else "negative in tone" if negative else "neither positive nor negative in tone"
+        third, tone_title = [("It was %s" % tone_said, False)], "The 1 clip was %s" % tone_said
+        third += [("; it carried the message “%s”." % carried[0][0], False)] if carried else [(".", False)]
+    else:
+        if positive == 0 and negative == 0:
+            third, tone_title = [("None were positive or negative in tone", False)], "None of the %d clips were positive or negative in tone" % total
+        else:
+            was, neg = "was" if positive == 1 else "were", "none" if negative == 0 else str(negative)
+            third = [("None" if positive == 0 else str(positive), True), (" %s positive in tone and " % was, False), (neg, True), (" negative", False)]
+            tone_title = "%s %s positive in tone and %s negative" % (
+                "None of the %d clips" % total if positive == 0 else "%d of %d clips" % (positive, total), was, neg)
+        third += [("; the most carried message, “%s”, appeared in " % carried[0][0], False), (str(carried[0][1]), True), (".", False)] if carried else [(".", False)]
+    d.lead([first] + ([second] if second else []) + [third])
+
+    if types:
+        d.heading(types_title)
+        d.bars([(cap(k), v) for k, v in types], highlight={cap(k) for k, v in types if v == t_top})
+    if months:
+        d.heading("Coverage peaked in %s with %s" % (m_lead, plural(m_top, "clip")))
+        d.bars(months, highlight={k for k, v in months if v == m_top})
+    d.heading(tone_title)
+    d.split_bar(tones)
+    if one:
+        d.heading("The 1 clip came from the agency's own outreach" if driven else "The 1 clip did not come from the agency's own outreach")
+    else:
+        d.heading("None of the %d clips came from the agency's own outreach" % total if driven == 0 else
+                  "All %d clips came from the agency's own outreach" % total if driven == total else
+                  "%d of %d clips came from the agency's own outreach" % (driven, total))
+    d.bars([("Agency-driven", driven), ("Organic", organic)], highlight={"Agency-driven"})
+    if carried and not one:
+        d.heading("The most carried message appeared in %d of %d clips" % (carried[0][1], total))
+        d.bars(carried, highlight={k for k, v in carried if v == carried[0][1]})
+
+    d.heading("The coverage")
+    unconfirmed = False
+    for i, grp in enumerate(need(c, "clip_groups", list, "")):
+        w = "clip_groups[%d]." % i
+        if grp.get("month"):
+            d.text(need(grp, "month", str, w), 10, after=4, before=6, bold=True, color=org["primary"], keep=True)
+        rows = [["Outlet", "Article", "Published", "Reporter"]]
+        for j, k in enumerate(need(grp, "clips", list, w)):
+            kw = "%sclips[%d]." % (w, j)
+            article = [d.link(need(k, "headline", str, kw), need(k, "url", str, kw), 9.5)]
+            if k.get("from_export"):
+                unconfirmed = True
+                article.append(d.run(" *", 9.5, bold=True, color=label_color(org)))
+            rows.append([need(k, "outlet", str, kw), article, need(k, "date", str, kw), need(k, "reporter", str, kw)])
+        d.table(rows, widths=[0.20, 0.45, 0.18, 0.17])  # the date column holds a written-out date on one line
+    if unconfirmed:
+        d.text("* Not independently confirmed.", 8, after=0, before=4, color=GRAY)
+    return d, "Coverage report %s %s to %s" % (subject, start, end), org["footer"], None
+
+
+def layout_coverage_report(c, org):
+    """templates/coverage-report-template.md in the media-targeting plugin: a client-ready document."""
+    client, campaign, pitched, reported = (need(c, k, str, "") for k in ("client", "campaign", "pitch_date", "report_date"))
+    placements, targeted = need(c, "placements", list, ""), need(c, "targeted", int, "")
+    segments = need(c, "by_segment", list, "")
+    if targeted < 1:
+        raise RenderError("the content file's targeted must be at least 1")
+    won = len(placements)
+    seg_rows = []
+    for i, sg in enumerate(segments):
+        w = "by_segment[%d]." % i
+        seg_rows.append([need(sg, "segment", str, w)] + [need(sg, k, int, w) for k in ("targeted", "covered", "no_coverage", "unresolved")])
+    pending = sum(r[4] for r in seg_rows)
+    covered = [(r[0], r[2]) for r in seg_rows]
+    if won:
+        lead, top, ties = most(covered)
+
+    d = Docx(org)
+    d.cover("Coverage report", client, campaign, "Pitched %s  ·  Report %s" % (pitched, reported))
+    # no rate while any reporter is unresolved: the template's rule, since the rate would count them as misses
+    # and none when nothing was won: "no placements" says it, a rate of 0% only repeats it
+    rate = [] if pending or not won else [(", a placement rate of ", False), ("%d%%" % round(100.0 * won / targeted), True)]
+    first = [("Outreach for the %s won " % campaign, False), (plural(won, "placement") if won else "no placements", True), (" from ", False),
+             ("%d targeted reporters" % targeted, True)] + rate + [(" across %s." % plural(len(segments), "segment"), False)]
+    lines = [first]
+    if won:
+        share = [("%s each won " % lead, False)] if ties > 1 else [("%s won the most, " % lead, False)]
+        lines.append(share + [("%d of %d" % (top, won), True), (".", False)]
+                     + ([(" " + need(c, "discovery_line", str, ""), False)] if "discovery_line" in c else []))
+    if pending:
+        lines.append([(str(pending), True), (" of the %d reporters %s not yet resolved." % (targeted, "is" if pending == 1 else "are"), False)])
+    d.lead(lines)
+    if won:
+        d.heading("%s each won %d of %d placements" % (lead, top, won) if ties > 1 else "%s won the most placements: %d of %d" % (lead, top, won))
+        d.bars(covered, highlight={k for k, v in covered if v == top})
+        rows = [["Outlet", "Article", "Published", "Reporter", "Segment"]]
+        for i, p in enumerate(placements):
+            w = "placements[%d]." % i
+            if p.get("url"):
+                headline = [d.link(need(p, "headline", str, w), need(p, "url", str, w), 9.5)]
+            else:
+                headline = [d.run("%s (%s)" % (need(p, "headline", str, w), need(p, "note", str, w)), 9.5)]
+            rows.append([need(p, "outlet", str, w), headline, need(p, "date", str, w), need(p, "reporter", str, w), need(p, "segment", str, w)])
+        d.heading("The placements")
+        d.table(rows, widths=[0.18, 0.40, 0.12, 0.15, 0.15])
+    d.heading("%d of %d targeted reporters %s not yet resolved" % (pending, targeted, "is" if pending == 1 else "are") if pending else "By segment")
+    d.table([["Segment", "Targeted", "Covered", "No coverage", "Not yet resolved"]] + [[r[0]] + [str(v) for v in r[1:]] for r in seg_rows],
+            widths=[0.32, 0.17, 0.17, 0.17, 0.17])
+    if "ai_visibility" in c:
+        d.heading("AI-answer visibility")
+        d.text(need(c, "ai_visibility", str, ""), 10, after=6, color=INK)
+    return d, "%s coverage report %s" % (client, campaign), org["footer"], None
+
+
+GRADES = {"FIRM": "firm", "GUIDED": "guided", "ESTIMATED": "estimated", "SPECULATIVE": "speculative",
+          "LAPSED-GUIDED": "lapsed", "inherited risk": "watch"}
+CLAIM_TAG = re.compile(r"\(?((\u26a0|\u2713) ?(?:needs[- ]support|substantiated))\)?")
+
+
+def grade_runs(d, grade, size):
+    """How sure, as marks: each grade word the suite knows becomes its mark, any other word stays a plain
+    word, and the commas between them stay, so the text reads as it was written."""
+    runs = []
+    for i, part in enumerate(grade.split(", ")):
+        if i:
+            runs.append(d.run(", ", size))
+        runs.append(d.mark(part, GRADES[part]) if part in GRADES else d.run(part, size))
+    return runs
+
+
+def tagged_runs(d, text, size, **style):
+    """A line of text with its claim tags drawn as marks. A tag keeps its sign and its words exactly; only
+    brackets around it go."""
+    runs, at = [], 0
+    for m in CLAIM_TAG.finditer(text):
+        if m.start() > at:
+            runs.append(d.run(text[at:m.start()], size, **style))
+        runs.append(d.mark(m.group(1), "watch" if m.group(2) == "\u26a0" else "backed"))
+        at = m.end()
+    if at < len(text) or not runs:
+        runs.append(d.run(text[at:], size, **style))
+    return runs
+
+
+def layout_landscape_report(c, org):
+    """competitive-intel's landscape report: page one is labelled rows of bullets (where the client stands,
+    the dates that matter, the biggest risk and opportunity, what to do by when), then the evidence on the
+    pages after."""
+    client, space, prepared, horizon = (need(c, k, str, "") for k in ("client", "space", "prepared_date", "horizon"))
+    stands, dates, actions = text_list(c, "stands", ""), need(c, "dates", list, ""), need(c, "actions", list, "")
+    for key, items in (("stands", stands), ("dates", dates)):
+        if not 1 <= len(items) <= 3:
+            raise RenderError("the content file's %s must hold 1 to 3 items: page one stays short" % key)
+    approved = c.get("approved")
+    d = Docx(org)
+    primary, face = org["primary"], org["heading"]
+    section = lambda title: d.text(title, 14, after=8, before=20, font=face, color=primary, keep=True, over=org["accent"])
+    d.masthead("Competitive landscape", state=("Draft for review", "watch") if approved is None else None)
+    d.text(client, 26, after=4, font=face, color=primary)
+    d.text(space, 11, after=3, color=INK)
+    d.text("Prepared %s · Horizon %s" % (prepared, horizon), 9, after=6 if approved else 14, color=GRAY)
+    if approved is not None:
+        d.para([d.mark("Approved", "approved"), d.run(" by %s, %s" % (need(approved, "name", str, "approved."), need(approved, "date", str, "approved.")), 9, color=GRAY)], after=14)
+    date_rows, action_rows = [], []
+    for i, e in enumerate(dates):
+        w = "dates[%d]." % i
+        date_rows.append([d.run(need(e, "when", str, w), 10, bold=True, color=primary), d.run(" · %s " % need(e, "what", str, w), 10)]
+                         + grade_runs(d, need(e, "grade", str, w), 10) + [d.run(": %s" % need(e, "why", str, w), 10)])
+    for i, a in enumerate(actions):
+        w = "actions[%d]." % i
+        action_rows.append([d.run("By %s" % need(a, "by", str, w), 10, bold=True, color=primary), d.run(": %s" % need(a, "what", str, w), 10)])
+    d.labelled([("Where %s stands" % client, [tagged_runs(d, s_, 10) for s_ in stands], None),
+                ("The dates that matter", date_rows, None),
+                ("Biggest risk", [tagged_runs(d, need(c, "risk", str, ""), 10)], "risk"),
+                ("Biggest opportunity", [tagged_runs(d, need(c, "opportunity", str, ""), 10)], "good"),
+                ("What to do, by when", action_rows, None)])
+    d.text(need(c, "confidence", str, ""), 9, after=0, before=6, color=GRAY)
+
+    d.body.append('<w:p><w:r><w:br w:type="page"/></w:r></w:p>')
+    d.masthead("Competitive landscape", note=client)
+    d.text("The evidence", 22, after=4, font=face, color=primary)
+    head = lambda *names: [[d.label(n, GRAY, bold=True)] for n in names]
+    section("Competitors")
+    rows = [head("Company", "Group", "Why")]
+    for i, r in enumerate(need(c, "competitors", list, "")):
+        w = "competitors[%d]." % i
+        rows.append([[d.run(need(r, "name", str, w), 9.5, bold=True, color=primary)], need(r, "tier", str, w), need(r, "why", str, w)])
+    d.table(rows, widths=[0.22, 0.14, 0.64])
+    section("Timeline")
+    rows = [head("When", "Who", "What", "How sure", "Basis")]
+    for i, r in enumerate(need(c, "timeline", list, "")):
+        w = "timeline[%d]." % i
+        rows.append([[d.run(need(r, "when", str, w), 9.5, bold=True, color=primary)], need(r, "who", str, w), need(r, "what", str, w),
+                     grade_runs(d, need(r, "grade", str, w), 9.5), need(r, "basis", str, w)])
+    d.table(rows, widths=[0.15, 0.15, 0.24, 0.16, 0.30])
+    d.text("How sure: FIRM means the date is fixed; GUIDED means the company promised it and it can slip; "
+           "ESTIMATED means we worked it out from the record; SPECULATIVE means possible, not anchored.", 8.5, after=6, color=GRAY)
+    scenarios = need(c, "scenarios", list, "")
+    if scenarios:
+        section("If it happens: scenarios")
+    for i, sc in enumerate(scenarios):
+        w = "scenarios[%d]." % i
+        d.para([d.run("%s · %s · " % (need(sc, "event", str, w), need(sc, "window", str, w)), 12, font=face, color=primary)]
+               + grade_runs(d, need(sc, "grade", str, w), 12), after=4, before=12, keep=True)
+        for j, b in enumerate(need(sc, "branches", list, w)):
+            bw = "%sbranches[%d]." % (w, j)
+            d.text(need(b, "outcome", str, bw), 10, after=3, before=8, bold=True, color=primary, keep=True, over="D9D9D9")
+            for m in text_list(b, "messages", bw):
+                d.para(tagged_runs(d, m, 10), after=3, numbered=True)
+            d.para([d.label("Holding statement: ", label_color(org), bold=True), d.run(need(b, "holding", str, bw), 10.5, font=face)],
+                   after=10, before=4, shade=tint(primary, TINT), edge=org["accent"])
+    section("Sources and gaps")
+    for g in text_list(c, "gaps", "") + text_list(c, "method", ""):
+        d.text(g, 9, after=2)
+    return d, "%s Competitive landscape %s" % (client, prepared), org["footer"], None
+
+
+LAYOUTS = {"daily-brief": layout_daily_brief, "alert-brief": layout_alert_brief, "quarterly-snapshot": layout_quarterly_snapshot,
+           "clips-report": layout_clips_report, "coverage-report": layout_coverage_report, "landscape-report": layout_landscape_report}
+
+
+# ---------------------------------------------------------------- fill an agency's template
+
+def attr(tag, name):
+    m = re.search(r'\b%s="([^"]*)"' % name, tag)
+    return m.group(1) if m else ""
+
+
+
+FILL_PARTS = re.compile(r"^(word/(document|header\d*|footer\d*)\.xml|ppt/slides/slide\d+\.xml)$")
+PARA = re.compile(r"<(a|w):p\b[^>]*>.*?</(?:a|w):p>", re.S)
+TEXT = re.compile(r"(<(a|w):t(?: [^>]*)?>)(.*?)(</(?:a|w):t>)", re.S)
+
+
+def para_text(p):
+    return html.unescape("".join(m.group(3) for m in TEXT.finditer(p)))
+
+
+def set_para_text(p, text):
+    """The paragraph with `text` in its first run (keeping that run's formatting) and the others emptied."""
+    first = [True]
+
+    def put(m):
+        if not first[0]:
+            return m.group(1) + m.group(4)
+        first[0] = False
+        opening = '<w:t xml:space="preserve">' if m.group(2) == "w" else m.group(1)
+        return opening + esc(text) + m.group(4)
+
+    return TEXT.sub(put, p)
+
+
+def fill_part(xml, replace, lists, used):
+    """Expand list placeholders, then replace inline ones, paragraph by paragraph."""
+    def one(m):
+        p = m.group(0)
+        whole = para_text(p).strip()
+        if whole in lists:
+            if whole in used:
+                return ""  # a repeated placeholder line: the first one carries the whole list
+            used.add(whole)
+            return "".join(set_para_text(p, line) for line in lists[whole])
+        if "{{" not in whole:
+            return p
+        def swap(text):
+            for k, v in replace.items():
+                text = text.replace(k, v)
+            return text
+
+        # Within each run first, so every run keeps its own formatting; a placeholder Office split
+        # across runs survives that, and then the paragraph's text goes into its first run.
+        per_run = TEXT.sub(lambda m: m.group(1) + esc(swap(html.unescape(m.group(3)))) + m.group(4), p)
+        if any(k in para_text(per_run) for k in replace):
+            return set_para_text(p, swap(para_text(p)))
+        return per_run
+
+    return PARA.sub(one, xml)
+
+
+def rel_target(rels, rid):
+    """The Target of relationship `rid`, whatever order the writer put its attributes in."""
+    for tag in re.findall(r"<Relationship\b[^>]*>", rels):
+        if attr(tag, "Id") == rid:
+            return attr(tag, "Target")
+    raise RenderError("the file names a part (%s) it does not contain" % rid)
+
+
+def text_box(pic, text, org):
+    """A centered text box in the picture's place: the org-config rule for an unset logo."""
+    nv = re.search(r'<p:cNvPr id="(\d+)" name="([^"]*)"', pic)
+    xfrm = re.search(r"<a:xfrm\b.*?</a:xfrm>", pic, re.S)
+    return ('<p:sp><p:nvSpPr><p:cNvPr id="%s" name="%s"/><p:cNvSpPr txBox="1"/><p:nvPr/></p:nvSpPr>'
+            '<p:spPr>%s<a:prstGeom prst="rect"><a:avLst/></a:prstGeom></p:spPr>'
+            '<p:txBody><a:bodyPr wrap="square" anchor="ctr"><a:normAutofit/></a:bodyPr><a:lstStyle/>'
+            '<a:p><a:pPr algn="ctr"/><a:r><a:rPr lang="en-US" sz="1200" b="1"><a:solidFill><a:srgbClr val="%s"/></a:solidFill>'
+            '<a:latin typeface="%s"/></a:rPr><a:t>%s</a:t></a:r></a:p></p:txBody></p:sp>'
+            % (nv.group(1), nv.group(2), xfrm.group(0), org["primary"], esc(org["body"]), esc(text)))
+
+
+def fill_pictures(name, xml, pictures, files, org, done):
+    """Swap each named picture (matched on its alt text, else its name) for text or a same-type image."""
+    rels_name = re.sub(r"([^/]+)$", r"_rels/\1.rels", name)
+
+    def one(m):
+        pic = m.group(0)
+        nv = re.search(r'<p:cNvPr id="\d+" name="([^"]*)"(?: descr="([^"]*)")?', pic)
+        key = next((k for k in (nv.group(2), nv.group(1)) if k in pictures), None) if nv else None
+        if key is None:
+            return pic
+        done.add(key)
+        spec = pictures[key]
+        if "text" in spec:
+            return text_box(pic, need(spec, "text", str, "pictures.%s." % key), org)
+        image = need(spec, "image", str, "pictures.%s." % key)
+        rid = re.search(r'r:embed="([^"]+)"', pic).group(1)
+        target = rel_target(files[rels_name].decode("utf-8"), rid)
+        media = os.path.normpath(os.path.join(os.path.dirname(name), target))
+        if os.path.splitext(media)[1].lower() != os.path.splitext(image)[1].lower():
+            raise RenderError("the image for %s must be a %s file, like the template's" % (key, os.path.splitext(media)[1]))
+        try:
+            with open(image, "rb") as fh:
+                files[media] = fh.read()
+        except OSError as e:
+            raise RenderError("could not read the image %s: %s" % (image, e.strerror))
+        return pic
+
+    return re.sub(r"<p:pic>.*?</p:pic>", one, xml, flags=re.S)
+
+
+def run_fill(args):
+    keep_content_out_of_deliverables(args)
+    ext = os.path.splitext(args.template)[1].lower()
+    if ext not in (".docx", ".pptx") or os.path.splitext(args.out)[1].lower() != ext:
+        raise RenderError("fill takes a .docx or .pptx template and writes the same type")
+    org = resolve_org(args.root)
+    c = load_content(args.content)
+    title = need(c, "title", str, "")
+    replace = c.get("replace", {})
+    if not isinstance(replace, dict) or not all(isinstance(v, str) for v in replace.values()):
+        raise RenderError("the content file's replace is not a group of text values")
+    lists = c.get("lists", {})
+    if not isinstance(lists, dict):
+        raise RenderError("the content file's lists is not a group")
+    for k in lists:
+        text_list(lists, k, "lists.")
+    pictures = c.get("pictures", {})
+    if not isinstance(pictures, dict) or not all(isinstance(v, dict) for v in pictures.values()):
+        raise RenderError("the content file's pictures is not a group of picture groups")
+    if pictures and ext == ".docx":
+        raise RenderError("pictures can be swapped in a .pptx template only")
+    try:
+        with zipfile.ZipFile(args.template) as z:
+            infos = z.infolist()
+            files = {i.filename: z.read(i.filename) for i in infos}
+    except (OSError, zipfile.BadZipFile) as e:
+        raise RenderError("could not read the template %s: %s" % (args.template, e))
+    used, done = set(), set()
+    for name in [n for n in files if FILL_PARTS.match(n)]:
+        xml = fill_part(files[name].decode("utf-8"), replace, lists, used)
+        if pictures:
+            xml = fill_pictures(name, xml, pictures, files, org, done)
+        files[name] = xml.encode("utf-8")
+    missing = sorted(set(lists) - used) + sorted(set(pictures) - done)
+    if missing:
+        raise RenderError("the template has no placeholder %s" % ", ".join(missing))
+    for name in [n for n in files if FILL_PARTS.match(n)]:
+        if re.search(r"<(a:txBody|w:tc)\b[^>]*>(?:(?!<[aw]:p\b).)*?</\1>", files[name].decode("utf-8"), re.S):
+            raise RenderError("an emptied list left a table cell or text box in %s with no line at all" % name)
+    if "docProps/core.xml" not in files:
+        raise RenderError("the template has no docProps/core.xml to carry the file's metadata")
+    files["docProps/core.xml"] = core_props(title, org["name"]).encode("utf-8")
+
+    def write(tmp):
+        with zipfile.ZipFile(tmp, "w", zipfile.ZIP_DEFLATED) as z:
+            for i in infos:
+                z.writestr(i, files[i.filename])
+
+    return deliver(args, write)
+
+
+# ---------------------------------------------------------------- read an agency's .xlsx
+
+DATE_FORMAT_IDS = set(range(14, 23)) | {45, 46, 47}
+CELL = re.compile(r"<c\b([^>]*?)(?:/>|>(.*?)</c>)", re.S)
+
+
+def xml_text(fragment):
+    return html.unescape("".join(re.findall(r"<t(?: [^>]*)?>(.*?)</t>", fragment, re.S)))
+
+
+def column_index(ref):
+    n = 0
+    for ch in re.match(r"[A-Z]+", ref).group(0):
+        n = n * 26 + ord(ch) - 64
+    return n - 1
+
+
+def date_styles(styles):
+    """Indexes into cellXfs whose number format shows a date."""
+    custom = {int(i): code for i, code in re.findall(r'<numFmt\b[^>]*numFmtId="(\d+)"[^>]*formatCode="([^"]*)"', styles)}
+    xfs = re.search(r"<cellXfs\b[^>]*>(.*?)</cellXfs>", styles, re.S)
+    out = set()
+    for i, xf in enumerate(re.findall(r"<xf\b[^>]*>", xfs.group(1) if xfs else "")):
+        fid = int(attr(xf, "numFmtId") or 0)
+        code = re.sub(r'"[^"]*"|\[[^\]]*\]', "", html.unescape(custom.get(fid, "")))
+        if fid in DATE_FORMAT_IDS or (fid in custom and re.search(r"[dy]", code, re.I)):
+            out.add(i)
+    return out
+
+
+def run_read_xlsx(args):
+    """One sheet's rows as text, the way a person sees them: the sheet named with --sheet, else the
+    first. Every sheet's name is listed. Read-only: the file is never written."""
+    try:
+        with zipfile.ZipFile(args.file) as z:
+            names = set(z.namelist())
+            read = lambda n: z.read(n).decode("utf-8") if n in names else ""
+            book, rels = read("xl/workbook.xml"), read("xl/_rels/workbook.xml.rels")
+            sheets = [(html.unescape(attr(tag, "name")), attr(tag, "r:id")) for tag in re.findall(r"<sheet\b[^>]*>", book)]
+            if not sheets:
+                raise RenderError("%s has no sheets" % args.file)
+            wanted = (args.sheet or "").strip().lower()
+            chosen = [s for s in sheets if s[0].strip().lower() == wanted] if wanted else sheets[:1]
+            if not chosen:
+                raise RenderError("%s has no sheet named %s; its sheets are %s" % (args.file, args.sheet.strip(), ", ".join(n for n, _ in sheets)))
+            sheet_name, rid = chosen[0]
+            target = rel_target(rels, rid)
+            sheet = read(target.lstrip("/") if target.startswith("/") else "xl/" + target)
+            shared = [xml_text(si) for si in re.findall(r"<si>(.*?)</si>", read("xl/sharedStrings.xml"), re.S)]
+            dates = date_styles(read("xl/styles.xml"))
+    except (OSError, zipfile.BadZipFile, KeyError, AttributeError) as e:
+        raise RenderError("%s is not a readable .xlsx file: %s" % (args.file, e))
+    rows = []
+    for row in re.findall(r"<row\b[^>]*?(?:/>|>(.*?)</row>)", sheet, re.S):
+        cells = {}
+        for attrs, body in CELL.findall(row):
+            ref = re.match(r"[A-Z]+", attr(attrs, "r"))
+            kind, style = attr(attrs, "t"), int(attr(attrs, "s") or 0)
+            v = re.search(r"<v>(.*?)</v>", body or "", re.S)
+            v = html.unescape(v.group(1)) if v else ""
+            if kind == "s" and v:
+                value = shared[int(v)]
+            elif kind == "inlineStr":
+                value = xml_text(body)
+            elif kind == "b":
+                value = "TRUE" if v == "1" else "FALSE"
+            elif v and kind in ("", "n") and style in dates:
+                value = (datetime.date(1899, 12, 30) + datetime.timedelta(days=int(float(v)))).isoformat()
+            elif v and kind in ("", "n") and re.match(r"^-?\d+\.0+$", v):
+                value = v.split(".")[0]
+            else:
+                value = v
+            cells[column_index(ref.group(0)) if ref else len(cells)] = value
+        if cells:
+            rows.append([cells.get(i, "") for i in range(max(cells) + 1)])
+    if not rows:
+        raise RenderError("the sheet %s of %s is empty" % (sheet_name, args.file))
+    return {"status": "ok", "path": args.file, "sheet": sheet_name, "sheets": [n for n, _ in sheets], "rows": rows}
+
+
+# ---------------------------------------------------------------- residue check
+
+TITLE_SEPARATOR = r"[-–—:|]"
+# Where a name can sit outside a file's text: a link's target, an image's description, a tooltip.
+ATTRIBUTE_VALUE = re.compile(r"""\b(?:Target|href|src|descr|title|alt|tooltip)=(?:"([^"]*)"|'([^']*)')""")
+
+
+def client_title_name(first_line):
+    """The client's name from its README's first line, whatever form the title takes: the name
+    alone, or with "client folder" before or after it behind any dash, colon or bar."""
+    name = first_line.strip().lstrip("#").strip()
+    name = re.sub(r"(?i)\s*%s\s*client folder\s*$" % TITLE_SEPARATOR, "", name)
+    name = re.sub(r"(?i)^client folder\s*%s\s*" % TITLE_SEPARATOR, "", name)
+    return name.strip()
+
+
+def other_clients(root, client):
+    """(slug, name) for every client folder but `client`'s. A folder whose name cannot be read stops
+    the check: a name that is not known cannot be looked for."""
+    clients = os.path.join(root, "clients")
+    if client is not None and not os.path.isdir(os.path.join(clients, client)):
+        raise RenderError("there is no client folder %s under %s" % (client, clients))
+    others = []
+    if not os.path.isdir(clients):  # a new gameplan root has no clients yet
+        return others
+    for slug in sorted(os.listdir(clients)):
+        if slug == client or slug.startswith(".") or not os.path.isdir(os.path.join(clients, slug)):
+            continue
+        try:
+            with open(os.path.join(clients, slug, "README.md"), encoding="utf-8") as fh:
+                first = fh.readline()
+        except OSError:
+            first = ""
+        name = client_title_name(first)
+        if not name:
+            raise RenderError("the client folder %s has no README title, so its name cannot be read and no file can be "
+                              "checked against it; give its README.md a first line with the client's name" % slug)
+        others.append((slug, name))
+    return others
+
+
+def competitors_text(root, client):
+    """This client's own competitors file, or nothing: another client named there may be named."""
+    if client is None:
+        return ""
+    try:
+        with open(os.path.join(root, "clients", client, "competitors.md"), encoding="utf-8") as fh:
+            return fh.read()
+    except OSError:
+        return ""
+
+
+def attribute_text(xml):
+    """The link targets, descriptions and tooltips of a part, as written and with %XX decoded."""
+    values = html.unescape("\n".join(a or b for a, b in ATTRIBUTE_VALUE.findall(xml)))
+    return values + "\n" + urllib.parse.unquote(values)
+
+
+def package_text(path):
+    """Every XML part's text keyed by part name; a .csv or an .html page is one part holding its
+    whole text (the page as written, so its tags are stripped like any part's)."""
+    if path.lower().endswith((".csv", ".html")):
+        try:
+            with open(path, encoding="utf-8-sig") as fh:
+                text = fh.read()
+                return {os.path.basename(path): text if path.lower().endswith(".html") else esc(text)}
+        except OSError as e:
+            raise RenderError("could not read %s: %s" % (path, e.strerror))
+    try:
+        z = zipfile.ZipFile(path)
+    except (OSError, zipfile.BadZipFile) as e:
+        raise RenderError("%s is not a readable Office file: %s" % (path, e))
+    with z:
+        return {n: z.read(n).decode("utf-8", "replace") for n in z.namelist() if n.endswith((".xml", ".rels"))}
+
+
+def hidden_cell_text(parts):
+    """Text sitting in a merged-away table cell: kept in the file, never shown by the app."""
+    found = []
+    for name, xml in parts.items():
+        for tc in re.findall(r'<a:tc\b[^>]*\b[hv]Merge="1"[^>]*>.*?</a:tc>', xml, re.S):
+            t = "".join(re.findall(r"<a:t>(.*?)</a:t>", tc, re.S)).strip()
+            if t:
+                found.append({"part": name, "text": html.unescape(t)})
+        for tc in re.findall(r"<w:tc\b[^>]*>(?:(?!</w:tc>).)*?<w:vMerge/>.*?</w:tc>", xml, re.S):
+            t = "".join(re.findall(r"<w:t(?: [^>]*)?>(.*?)</w:t>", tc, re.S)).strip()
+            if t:
+                found.append({"part": name, "text": html.unescape(t)})
+    return found
+
+
+def run_check(path, root, client):
+    parts = package_text(path)
+    problems = []
+    # Tags removed two ways: with nothing (a name split across runs) and with a space (a name at a
+    # paragraph's edge). A hit in either counts.
+    plain = {n: html.unescape(re.sub(r"<[^>]+>", "", x)) + "\n" + html.unescape(re.sub(r"<[^>]+>", " ", x)) for n, x in parts.items()}
+    attrs = {n: attribute_text(x) for n, x in parts.items()}
+    competitors, allowed = competitors_text(root, client), []
+    for slug, name in other_clients(root, client):
+        in_text = re.compile(r"\b%s\b" % re.escape(name), re.I)
+        # In a link the name's words may be joined or split by a hyphen, an underscore or nothing.
+        in_link = re.compile(r"(?<![a-z0-9])%s(?![a-z0-9])" % r"[\s\-_+.]*".join(re.escape(w) for w in name.split()), re.I)
+        slug_pat = re.compile(r"\b%s\b" % re.escape(slug), re.I)
+        terms = [(slug, slug_pat, slug_pat)] + ([(name, in_text, in_link)] if name.lower() != slug.lower() else [])
+        found = []
+        for term, text_pat, link_pat in terms:
+            hits = sorted(n for n in parts if text_pat.search(plain[n]) or link_pat.search(attrs[n]))
+            if hits:
+                found.append("another client's name, %s, appears in %s" % (term, ", ".join(hits)))
+        if found and in_text.search(competitors):
+            allowed.append("%s (listed as a competitor of this client)" % name)
+        else:
+            problems += found
+    for marker in ("{{", UNSET):
+        hits = sorted(n for n, t in plain.items() if marker in t)
+        if hits:
+            problems.append("an unfilled %s marker remains in %s" % (marker, ", ".join(hits)))
+    for h in hidden_cell_text(parts):
+        problems.append("a merged-away table cell in %s still holds text: %s" % (h["part"], h["text"][:80]))
+    links = []
+    for n, x in sorted(parts.items()):
+        if n.endswith(".rels"):
+            links += [html.unescape(u) for u in re.findall(r'Target="([^"]+)"[^>]*TargetMode="External"', x)]
+        elif n.lower().endswith(".html"):
+            links += [html.unescape(u) for u in re.findall(r'href="(https?://[^"]+)"', x)]
+    return problems, links, allowed
+
+
+def gap_text(line):
+    """A gap line without its list marker ("- ", "* ", "1. "), so a bulleted log matches a plain draft."""
+    return re.sub(r"^(?:[-*\u2022]|\d+[.)])\s+", "", line.strip())
+
+
+def decisions_gaps(path):
+    """The gap lines of a decisions log's `## Gaps acknowledged` section, verbatim apart from list markers.
+    A section that says only "none" has no gap lines."""
+    try:
+        with open(path, encoding="utf-8") as fh:
+            text = fh.read()
+    except OSError as e:
+        raise RenderError("could not read the decisions log %s: %s" % (path, e.strerror))
+    m = re.search(r"^## Gaps acknowledged\s*$(.*?)(?=^## |^<!--|\Z)", text, re.S | re.M)
+    if not m:
+        raise RenderError("the decisions log %s has no Gaps acknowledged section" % path)
+    lines = [gap_text(l) for l in m.group(1).splitlines() if l.strip()]
+    return [] if [l.lower().rstrip(".") for l in lines] == ["none"] else lines
+
+
+def squash(text):
+    """Text with every run of white space as one space, so a wrapped line matches an unwrapped one."""
+    return " ".join(text.split())
+
+
+def check_against_draft(c, path):
+    """Stop unless every headline, link, summary, Signal line, the sources line and each gap sentence
+    of a brief's content file stands word for word in its saved draft: the Word file carries the
+    words and links that were approved, never a rebuilt or remembered copy. Links are compared with
+    the draft, not opened."""
+    try:
+        with open(path, encoding="utf-8") as fh:
+            saved = squash(fh.read())
+    except OSError as e:
+        raise RenderError("could not read the saved draft %s: %s" % (path, e.strerror))
+    pieces = []
+    for i, cat in enumerate(c["categories"]):
+        for j, s in enumerate(cat["stories"]):
+            pieces += [("categories[%d].stories[%d].%s" % (i, j, k), s[k]) for k in ("headline", "url", "summary", "signal")]
+    pieces.append(("method.sources_run", brief_sources(c["method"])))
+    pieces += [("method.gaps[%d]" % i, gap_text(g)) for i, g in enumerate(c["method"]["gaps"])]
+    for where, text in pieces:
+        if squash(text) not in saved:
+            raise RenderError("the content file's %s is not in the saved draft %s word for word; the Word file carries "
+                              "the approved draft's words, so correct the content file, or take a change of wording "
+                              "back to the review" % (where, path))
+
+
+# ---------------------------------------------------------------- commands
+
+def deliver(args, write):
+    """Write to a temporary file, run the residue check on it, and only then put it at args.out.
+    A client's first file of a kind goes in a folder that does not exist yet, so the folders
+    are made first; a build that stops takes away the ones it made, and leaves nothing."""
+    if os.path.exists(args.out):
+        raise RenderError("%s already exists; a new version gets a new file name" % args.out)
+    folder = os.path.dirname(os.path.abspath(args.out))
+    made, missing = [], folder  # the folders this build makes, innermost first
+    while not os.path.isdir(missing) and os.path.dirname(missing) != missing:
+        made.append(missing)
+        missing = os.path.dirname(missing)
+    tmp = args.out + ".check" + os.path.splitext(args.out)[1]
+    try:
+        try:
+            os.makedirs(folder, exist_ok=True)
+        except OSError as e:
+            raise RenderError("could not make the folder %s: %s" % (folder, e.strerror))
+        write(tmp)
+        problems, links, allowed = run_check(tmp, args.root, args.client)
+        if problems:
+            raise RenderError("the residue check failed: " + "; ".join(problems))
+        os.replace(tmp, args.out)
+    finally:
+        if os.path.exists(tmp):
+            os.remove(tmp)
+        if not os.path.exists(args.out):
+            for path in made:
+                try:
+                    os.rmdir(path)  # only a folder this build made, and only while it is empty
+                except OSError:
+                    break
+    result = {"status": "ok", "path": args.out, "links": links, "residue": "clean"}
+    if allowed:
+        result["allowed"] = allowed
+    return result
+
+
+def clock(zone, now=None):
+    """The date and time in a named zone. A scheduled task's own clock may be on UTC and it is not told a
+    zone, so it asks here; a shell `date` with a zone set in front is not a command its allowed list covers."""
+    try:
+        from zoneinfo import ZoneInfo
+        there = ZoneInfo(zone)
+    except (ImportError, KeyError, ValueError, OSError):
+        raise RenderError("there is no time zone named %r here; use a name such as America/New_York" % zone)
+    at = (now or datetime.datetime.now(datetime.timezone.utc)).astimezone(there)
+    return {"status": "ok", "zone": zone, "date": at.strftime("%Y-%m-%d"), "time": at.strftime("%H:%M"),
+            "weekday": at.strftime("%A")}
+
+
+def keep_content_out_of_deliverables(args):
+    """Deliverables holds only what a person opens, approves or sends; a content file belongs in the root's build folder."""
+    inside = os.path.relpath(os.path.abspath(args.content), os.path.abspath(args.root))
+    if inside.split(os.sep)[0].lower() == "deliverables":
+        raise RenderError("the content file is in the Deliverables folder, which holds only what a person opens; "
+                          "write it in the build folder at the gameplan root")
+
+
+def run_build(args):
+    keep_content_out_of_deliverables(args)
+    if args.type not in LAYOUTS:
+        raise RenderError("there is no %s layout; this command builds %s" % (args.type, ", ".join(sorted(LAYOUTS))))
+    if not args.out.endswith(".docx"):
+        raise RenderError("the output file must end in .docx")
+    org = resolve_org(args.root)
+    content = load_content(args.content)
+    doc, title, footer, gaps = LAYOUTS[args.type](content, org)
+    if gaps is None and args.draft:
+        raise RenderError("--draft applies to a brief only")
+    if gaps is not None:
+        if not args.draft:
+            raise RenderError("a brief is built from its saved draft; pass it with --draft (the brief folder's draft.md)")
+        check_against_draft(content, args.draft)
+    if args.decisions:
+        if gaps is None:
+            raise RenderError("--decisions applies to a brief only")
+        wanted, given = decisions_gaps(args.decisions), [gap_text(g) for g in gaps]
+        if wanted != given:
+            first = next((i for i, (a, b) in enumerate(zip(wanted, given)) if a != b), min(len(wanted), len(given)))
+            raise RenderError("the content file's gaps do not match the decisions log's gaps acknowledged, line for line "
+                              "(first difference at gap %d); change the content file, never the decisions log" % (first + 1))
+    return deliver(args, lambda tmp: doc.save(tmp, title, footer))
+
+
+def parse_args(argv):
+    ap = argparse.ArgumentParser(prog="gameplan-render")
+    sub = ap.add_subparsers(dest="cmd", required=True)
+    b = sub.add_parser("build")
+    for a in ("--type", "--content", "--root", "--out"):
+        b.add_argument(a, required=True)
+    b.add_argument("--client")
+    b.add_argument("--decisions")
+    b.add_argument("--draft")
+    f = sub.add_parser("fill")
+    for a in ("--template", "--content", "--root", "--out"):
+        f.add_argument(a, required=True)
+    f.add_argument("--client")
+    c = sub.add_parser("check")
+    c.add_argument("file")
+    c.add_argument("--root", required=True)
+    c.add_argument("--client")
+    x = sub.add_parser("read-xlsx")
+    x.add_argument("file")
+    x.add_argument("--sheet")
+    sub.add_parser("clock").add_argument("--zone", required=True)
+    return ap.parse_args(argv)
+
+
+def main(argv, stdout=sys.stdout):
+    args = parse_args(argv)
+    try:
+        if args.cmd == "build":
+            result = run_build(args)
+        elif args.cmd == "fill":
+            result = run_fill(args)
+        elif args.cmd == "clock":
+            result = clock(args.zone)
+        elif args.cmd == "read-xlsx":
+            result = run_read_xlsx(args)
+        else:
+            problems, links, allowed = run_check(args.file, args.root, args.client)
+            result = {"status": "ok", "path": args.file, "links": links, "residue": "clean" if not problems else "found", "problems": problems}
+            if allowed:
+                result["allowed"] = allowed
+    except RenderError as e:
+        result = {"status": "error", "reason": str(e)}
+    json.dump(result, stdout, ensure_ascii=False, indent=1)
+    stdout.write("\n")
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main(sys.argv[1:]))

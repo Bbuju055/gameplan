@@ -1,0 +1,110 @@
+{
+  "$comment": "Machine-readable source declarations. Runtime enforcement is source-sweep's preflight (SKILL.md Step 2): connector registration and session tool availability are different surfaces, so every run probes by tool search, and probes the fetch constraint too, since it is environment-conditional (claude.ai fetch only accepts search-surfaced URLs; Claude Code fetches EDGAR and registry API URLs directly). 'required' = the skill's core promise breaks without it (run is partial and must say so); 'preferred' = degrades acceptably via the protocols in source-sweep. Kept out of plugin.json because the manifest schema rejects custom root keys.",
+  "sources": {
+    "biocentury": {
+      "connector": "BioCentury",
+      "degradedFallback": "none \u2014 editorial-pass coverage may not be claimed without it; every narrative/expectations claim becomes a named gap"
+    },
+    "clinicaltrials": {
+      "connector": "Clinical Trials",
+      "degradedFallback": "Claude Code: direct ClinicalTrials.gov API fetch (full querying, primary tier); claude.ai: search-mediated, recall incomplete"
+    },
+    "pubmed": {
+      "connector": "PubMed",
+      "degradedFallback": "search-mediated via PubMed/publisher result pages; corporate-affiliation queries not replicable"
+    },
+    "sec": {
+      "connector": "Beat and Raise or EDGAR direct",
+      "degradedFallback": "EDGAR direct (efts.sec.gov full-text search + filing index) is first-class in Claude Code, not a degraded mode; claude.ai without the connector: search-mediated"
+    },
+    "daloopa": {
+      "connector": "Daloopa",
+      "degradedFallback": "optional; financial fundamentals fall back to SEC filings"
+    },
+    "web": {
+      "connector": "Exa or built-in web search",
+      "degradedFallback": "n/a \u2014 web search is itself the degraded path for other sources"
+    }
+  },
+  "skills": {
+    "source-sweep": {
+      "required": [],
+      "preferred": [
+        "biocentury",
+        "clinicaltrials",
+        "pubmed",
+        "sec",
+        "daloopa",
+        "web"
+      ],
+      "note": "requirements are archetype-dependent; see SKILL.md Steps 1-3"
+    },
+    "competitor-discovery": {
+      "required": [
+        "clinicaltrials"
+      ],
+      "preferred": [
+        "biocentury",
+        "pubmed",
+        "sec",
+        "web"
+      ],
+      "note": "without the registry pass the set may not be described as complete; without BioCentury the editorial pass is a named gap"
+    },
+    "catalyst-timeline": {
+      "required": [
+        "clinicaltrials"
+      ],
+      "preferred": [
+        "biocentury",
+        "sec",
+        "pubmed",
+        "web"
+      ],
+      "note": "registry drives ESTIMATED derivations; without BioCentury the expectations cross-check is marked absent where it would have applied"
+    },
+    "scenario-planning": {
+      "required": [],
+      "preferred": [
+        "biocentury",
+        "web"
+      ],
+      "note": "consumes upstream hand-offs; uses source-sweep for claim substantiation"
+    },
+    "landscape-report": {
+      "required": [
+        "clinicaltrials"
+      ],
+      "preferred": [
+        "biocentury",
+        "pubmed",
+        "sec",
+        "daloopa",
+        "web"
+      ],
+      "note": "union of the chain; a required-source failure is a stage-failure event, not a quiet degrade"
+    },
+    "client-profile": {
+      "required": [],
+      "preferred": [],
+      "note": "filesystem only \u2014 reads the client folder"
+    },
+    "client-onboard": {
+      "required": [
+        "sec",
+        "clinicaltrials",
+        "pubmed",
+        "web"
+      ],
+      "preferred": [
+        "biocentury"
+      ],
+      "note": "public clients need the filings pass; private clients drop 'sec' and mark the asymmetry"
+    },
+    "client-deliverable": {
+      "required": [],
+      "preferred": [],
+      "note": "formatting only \u2014 consumes checkpoint-passed content and the template"
+    }
+  }
+}

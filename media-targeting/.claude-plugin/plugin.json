@@ -1,0 +1,9 @@
+{
+  "name": "media-targeting",
+  "version": "1.1.0",
+  "license": "MIT",
+  "description": "Pitch the right reporters. Your client's media list is built during setup; when you have news, say \"pitch this for\" your client and paste the release. Two weeks later, see what it landed. Needs core.",
+  "author": {
+    "name": "Mo Ngom"
+  }
+}

@@ -1,0 +1,34 @@
+{
+  "sources": [
+    {
+      "name": "openai",
+      "kind": "http-api",
+      "required": false,
+      "config": ["OPENAI_API_KEY", "PULSE_OPENAI_MODEL (optional, default gpt-5)"],
+      "degradation": "not measured: engine recorded unavailable in the run ledger; run proceeds partial and says so at the top; the review offers pasting its answers in by hand"
+    },
+    {
+      "name": "perplexity",
+      "kind": "http-api",
+      "required": false,
+      "config": ["PERPLEXITY_API_KEY", "PULSE_PERPLEXITY_MODEL (optional, default sonar)"],
+      "degradation": "not measured: engine recorded unavailable in the run ledger; run proceeds partial and says so at the top; the review offers pasting its answers in by hand"
+    },
+    {
+      "name": "claude",
+      "kind": "session-tools",
+      "required": false,
+      "config": ["web search available to a fresh subagent in this session"],
+      "degradation": "not measured, never answered from the session holding the client folder; with no other engine the run stops; labelled <org short name>'s own engine (org.short_name from the org config) whenever present"
+    },
+    {
+      "name": "client-folder",
+      "kind": "files",
+      "required": true,
+      "config": ["<gameplan-root>/clients/<slug>/ per the competitive-intel schema"],
+      "degradation": "none: no client folder, no run. Point to client onboarding."
+    }
+  ],
+  "not_planned": ["gemini", "google-ai-overviews"],
+  "not_planned_note": "Not measured by design. If a client asks, the Pulse report names these as 'not measured'."
+}

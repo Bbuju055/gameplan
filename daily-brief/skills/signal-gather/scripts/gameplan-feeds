@@ -1,0 +1,243 @@
+#!/usr/bin/env python3
+"""
+gameplan-feeds — daily-brief's way to reach its keyed feeds (Newsdata, radar).
+
+Keys are read from the environment here, never passed on the command line: an unattended session
+refuses any command that expands a variable. The script is not on the PATH; it is run by its path,
+`python3 <the signal-gather skill's folder>/scripts/gameplan-feeds`, which that skill gives when it
+is loaded, under one allow rule, `Bash(python3 *scripts/gameplan-feeds*)`. Key values are never
+printed.
+
+  NEWSDATA_API_KEY                   the Newsdata feed
+  RADAR_API_BASE, RADAR_API_TOKEN    radar's read-only handoff API
+
+Usage (gameplan-feeds stands for the whole command above)
+  gameplan-feeds check
+  gameplan-feeds newsdata --queries <client>/monitoring/queries.md --row <n> --from YYYY-MM-DD --to YYYY-MM-DD
+  gameplan-feeds newsdata --terms "<search terms>" --from YYYY-MM-DD --to YYYY-MM-DD
+  gameplan-feeds radar [--path /api/reports/qc-handoff]
+
+A newsdata search is one row of a queries file (--queries with --row) or free terms (--terms: a
+keyword report, the client's own terms, a media-list search), never both.
+
+Prints one JSON object. status is "ok", "unavailable" (not configured) or "error" (the call
+failed); the last two are the brief's named gap. Exit 0 for all three, 2 for bad arguments.
+A feed call's output also carries "ca": the certificates TLS was verified against. When Python's
+own store is empty (a python.org build on macOS before its "Install Certificates" step), the OS
+bundle is used instead and named there; verification is never turned off.
+Standard library only.
+"""
+import argparse, datetime, json, os, ssl, sys, time, urllib.error, urllib.parse, urllib.request
+
+NEWSDATA_BASE = "https://newsdata.io/api/1"
+RADAR_DEFAULT_PATH = "/api/reports/qc-handoff"
+MAX_PAGES = 10
+BACKOFF_SECONDS = 20
+TIMEOUT = 30
+SECRET_ENV = ("NEWSDATA_API_KEY", "RADAR_API_TOKEN")
+OS_CA_BUNDLE = "/etc/ssl/cert.pem"
+
+
+def parse_query_row(path, row):
+    """Return {category, query, source} for the row whose # cell is `row` in a queries.md file.
+
+    A query table has a # column and a column starting "Boolean terms"; its category is the heading
+    above it. Reading stops at the Archived heading: nothing from there on is run.
+    """
+    with open(path, encoding="utf-8") as f:
+        lines = f.read().splitlines()
+    category, header, numbers, found, any_query_table = "", None, [], None, False
+    for line in lines:
+        line = line.strip()
+        if line.startswith("#"):
+            category, header = line.lstrip("#").strip(), None
+            if category.lower() == "archived":
+                break
+            continue
+        if not line.startswith("|"):
+            header = None
+            continue
+        cells = [c.strip() for c in line.strip("|").split("|")]
+        if header is None:
+            header = [c.lower() for c in cells]
+            terms = next((i for i, h in enumerate(header) if h.startswith("boolean terms")), None)
+            is_query_table = "#" in header and terms is not None
+            any_query_table = any_query_table or is_query_table
+            continue
+        if not is_query_table or all(set(c) <= set("-: ") for c in cells):
+            continue
+        number = cells[header.index("#")]
+        if number in numbers:
+            raise ValueError(f"{path}: row {number} appears twice")
+        numbers.append(number)
+        if number == str(row):
+            if len(cells) != len(header):
+                raise ValueError(f"{path}: row {number} has {len(cells)} cells, its table has {len(header)} columns")
+            sources = next((c for h, c in zip(header, cells) if h.startswith("source")), "")
+            found = {"category": category, "query": cells[terms], "source": sources}
+    if not any_query_table:
+        raise ValueError(f"{path}: no table with # and Boolean terms columns")
+    if found is None:
+        raise ValueError(f"{path}: no row {row} (rows in the file: {', '.join(numbers) or 'none'})")
+    return found
+
+
+def choose_endpoint(start, today):
+    """A window that starts before today needs the archive; otherwise the latest feed."""
+    return "archive" if start < today else "latest"
+
+
+def ssl_context(make=ssl.create_default_context, exists=os.path.exists):
+    """Return (context, what it trusts): Python's default store, else the OS bundle when that is empty."""
+    ctx = make()
+    if ctx.cert_store_stats()["x509_ca"]:
+        return ctx, "python default"
+    if exists(OS_CA_BUNDLE):
+        return make(cafile=OS_CA_BUNDLE), OS_CA_BUNDLE
+    return ctx, "none: Python's store is empty and no OS bundle was found"
+
+
+def fetch_json(url, headers, context):
+    """Return (http_status, parsed body or None). Network failures raise urllib.error.URLError."""
+    req = urllib.request.Request(url, headers=headers)
+    try:
+        with urllib.request.urlopen(req, timeout=TIMEOUT, context=context) as resp:
+            return resp.status, json.loads(resp.read().decode("utf-8"))
+    except urllib.error.HTTPError as e:
+        try:
+            body = json.loads(e.read().decode("utf-8"))
+        except ValueError:
+            body = None
+        return e.code, body
+
+
+def trim_item(r):
+    return {"title": r.get("title"), "link": r.get("link"),
+            "source": r.get("source_name") or r.get("source_id"), "date": r.get("pubDate"),
+            "description": r.get("description"), "language": r.get("language")}
+
+
+def api_message(body):
+    """Newsdata puts its error under results.message; radar under error or message."""
+    if not isinstance(body, dict):
+        return "no readable body"
+    res = body.get("results")
+    if isinstance(res, dict) and res.get("message"):
+        return res["message"]
+    return body.get("message") or body.get("error") or "no message"
+
+
+def run_newsdata(args, env, today, fetch, sleep):
+    key = env.get("NEWSDATA_API_KEY")
+    by_row = bool(args.queries) and args.row is not None
+    if args.terms is not None and (args.queries or args.row is not None):
+        raise ValueError("give --terms, or --queries with --row, not both")
+    if args.terms is not None:
+        if not args.terms.strip():
+            raise ValueError("--terms is empty")
+        out = {"source": "newsdata", "query": args.terms.strip()}
+    elif by_row:
+        q = parse_query_row(args.queries, args.row)
+        out = {"source": "newsdata", "row": args.row, "category": q["category"], "query": q["query"]}
+    else:
+        raise ValueError("give --queries with --row, or --terms")
+    out.update({"window": [args.from_.isoformat(), args.to.isoformat()], "items": [], "pages": 0})
+    if not key:
+        return {**out, "status": "unavailable", "reason": "NEWSDATA_API_KEY not set"}
+    endpoint = choose_endpoint(args.from_, today)
+    params = {"apikey": key, "q": out["query"], "language": "en"}
+    if endpoint == "archive":
+        params.update(from_date=args.from_.isoformat(), to_date=args.to.isoformat())
+    out["endpoint"] = endpoint
+    page, backed_off = None, False
+    while out["pages"] < MAX_PAGES:
+        url = f"{NEWSDATA_BASE}/{endpoint}?" + urllib.parse.urlencode({**params, **({"page": page} if page else {})})
+        try:
+            status, body = fetch(url, {})
+        except (urllib.error.URLError, TimeoutError) as e:
+            return {**out, "status": "error", "reason": f"network: {getattr(e, 'reason', e)}"}
+        if status == 429:
+            if backed_off:
+                return {**out, "status": "error", "http_status": 429, "reason": "rate limited after one backoff"}
+            backed_off = True
+            sleep(BACKOFF_SECONDS)
+            continue
+        if status != 200 or not isinstance(body, dict) or body.get("status") != "success":
+            return {**out, "status": "error", "http_status": status, "reason": api_message(body)}
+        out["pages"] += 1
+        out["items"] += [trim_item(r) for r in body.get("results") or []]
+        page = body.get("nextPage")
+        if not page:
+            break
+    out["truncated"] = bool(page) and out["pages"] >= MAX_PAGES
+    return {**out, "status": "ok", "http_status": 200}
+
+
+def run_radar(args, env, fetch):
+    missing = [n for n in ("RADAR_API_BASE", "RADAR_API_TOKEN") if not env.get(n)]
+    out = {"source": "radar", "path": args.path}
+    if missing:
+        return {**out, "status": "unavailable", "reason": " and ".join(missing) + " not set"}
+    url = env["RADAR_API_BASE"].rstrip("/") + "/" + args.path.lstrip("/")
+    try:
+        status, body = fetch(url, {"Authorization": f"Bearer {env['RADAR_API_TOKEN']}"})
+    except (urllib.error.URLError, TimeoutError) as e:
+        return {**out, "status": "error", "reason": f"network: {getattr(e, 'reason', e)}"}
+    if status != 200 or body is None:
+        return {**out, "status": "error", "http_status": status, "reason": api_message(body)}
+    return {**out, "status": "ok", "http_status": 200, "body": body}
+
+
+def run_check(env):
+    def state(*names):
+        return "set" if all(env.get(n) for n in names) else "not set"
+    return {"source": "check", "status": "ok",
+            "sources": {"newsdata": state("NEWSDATA_API_KEY"),
+                        "radar": state("RADAR_API_BASE", "RADAR_API_TOKEN")}}
+
+
+def redact(text, env):
+    for name in SECRET_ENV:
+        if env.get(name):
+            text = text.replace(env[name], "[redacted]")
+    return text
+
+
+def parse_args(argv):
+    ap = argparse.ArgumentParser(prog="gameplan-feeds")
+    sub = ap.add_subparsers(dest="cmd", required=True)
+    sub.add_parser("check")
+    nd = sub.add_parser("newsdata")
+    nd.add_argument("--queries")
+    nd.add_argument("--row", type=int)
+    nd.add_argument("--terms")
+    nd.add_argument("--from", dest="from_", type=datetime.date.fromisoformat, required=True)
+    nd.add_argument("--to", type=datetime.date.fromisoformat, required=True)
+    rd = sub.add_parser("radar")
+    rd.add_argument("--path", default=RADAR_DEFAULT_PATH)
+    return ap.parse_args(argv)
+
+
+def main(argv, env=os.environ, today=None, fetch=None, context=None, sleep=time.sleep, stdout=sys.stdout):
+    args = parse_args(argv)
+    today = today or datetime.date.today()
+    try:
+        if args.cmd == "check":
+            result = run_check(env)
+        else:
+            ctx, ca = context or ssl_context()
+            fetch = fetch or (lambda url, headers: fetch_json(url, headers, ctx))
+            if args.cmd == "newsdata":
+                result = run_newsdata(args, env, today, fetch, sleep)
+            else:
+                result = run_radar(args, env, fetch)
+            result["ca"] = ca
+    except (OSError, ValueError) as e:
+        sys.stderr.write(redact(f"gameplan-feeds: {e}\n", env))
+        return 2
+    stdout.write(redact(json.dumps(result, ensure_ascii=False), env) + "\n")
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main(sys.argv[1:]))

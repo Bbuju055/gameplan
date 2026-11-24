@@ -1,0 +1,30 @@
+{
+  "sources": [
+    {
+      "name": "radar",
+      "kind": "http-api",
+      "required": false,
+      "config": ["RADAR_API_BASE", "RADAR_API_TOKEN"],
+      "degradation": "named gap: no scored-mention or alert coverage; brief still runs"
+    },
+    {
+      "name": "newsdata",
+      "kind": "http-api",
+      "required": false,
+      "config": ["NEWSDATA_API_KEY"],
+      "degradation": "per-query web-search fallback, recorded as web-mediated with completeness caveat"
+    },
+    {
+      "name": "clinicaltrials.gov",
+      "kind": "session-tools",
+      "required": false,
+      "degradation": "named gap"
+    },
+    {
+      "name": "web-search",
+      "kind": "session-tools",
+      "required": true,
+      "degradation": "none — the backstop itself"
+    }
+  ]
+}

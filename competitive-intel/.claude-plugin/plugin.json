@@ -1,0 +1,9 @@
+{
+  "name": "competitive-intel",
+  "version": "1.1.0",
+  "license": "MIT",
+  "description": "Know the field: competitors, the dates that will make news, and what to say either way, as a Word landscape. Runs as part of \"set up\" and your client's name; afterwards, ask what's coming up for your client, or what do we say if something happens. Needs core.",
+  "author": {
+    "name": "Mo Ngom"
+  }
+}

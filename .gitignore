@@ -1,0 +1,15 @@
+# A firm's own work stays out of this repository. Patterns are anchored to the
+# root (leading /) so each plugin's own templates/ and README.md stay tracked.
+
+# Client folders and finished deliverables: confidential, never committed.
+/clients/
+/deliverables/
+
+# The firm's filled settings (names, mailboxes, file locations). It overrides
+# core/config/org-config.yaml and is never committed.
+/org-config.yaml
+
+# OS and editor noise.
+.DS_Store
+__pycache__/
+*.pyc

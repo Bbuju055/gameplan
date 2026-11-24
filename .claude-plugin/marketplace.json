@@ -1,0 +1,14 @@
+{
+  "name": "gameplan",
+  "description": "Runs a life-sciences communications firm's client work inside Claude: know the field, watch the news, pitch the right reporters, and measure what landed.",
+  "owner": {
+    "name": "Mo Ngom"
+  },
+  "plugins": [
+    { "name": "core", "source": "./core" },
+    { "name": "competitive-intel", "source": "./competitive-intel" },
+    { "name": "daily-brief", "source": "./daily-brief" },
+    { "name": "media-targeting", "source": "./media-targeting" },
+    { "name": "narrative-pulse", "source": "./narrative-pulse" }
+  ]
+}

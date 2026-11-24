@@ -1,0 +1,90 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>{{client}} - Where things stand</title>
+<style>
+/* The suite's one look, the same as the reports this page links to. It fetches nothing: every face is on a
+   plain Windows and a plain Mac. --primary and --accent are the agency's brand colors; green and amber mean
+   done and still to do under every brand, and each state has its own shape as well. */
+:root{--primary:#0F2F2C;--accent:#8A6420;--ink:#17201F;--muted:#5A6664;--rule:#D9DCD6;--paper:#FFFFFF;--ground:#EEF0EC;--tint:#F6F3EA;--good:#1E7A4C;--warn:#A86200}
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:var(--ground);color:var(--ink);font:14.5px/1.5 Arial,"Helvetica Neue",Helvetica,sans-serif}
+.sheet{max-width:860px;margin:0 auto;background:var(--paper);padding:40px 56px 64px}
+.meta{font-family:Verdana,Arial,sans-serif;font-weight:700;font-size:11px;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);padding-bottom:10px;border-bottom:1px solid var(--rule)}
+h1{font-family:Georgia,"Times New Roman",serif;font-weight:400;font-size:36px;line-height:1.1;color:var(--primary);margin:26px 0 8px}
+.summary{font-family:Georgia,"Times New Roman",serif;font-size:19px;line-height:1.3;color:var(--ink);margin-bottom:8px}
+h2{font-size:14px;font-weight:700;color:var(--primary);margin:30px 0 0;padding-top:10px;border-top:2px solid var(--accent)}
+.row{padding:11px 0;border-bottom:1px solid var(--rule);display:flex;gap:12px;align-items:flex-start}
+.dot{width:10px;height:10px;margin-top:6px;flex:none;border:2px solid var(--muted)}
+.done .dot{background:var(--good);border-color:var(--good)}
+.todo .dot{background:transparent;border:2px solid var(--warn)}
+.skipped .dot{height:2px;margin-top:10px;border:0;background:var(--muted)}
+.name{font-weight:700;color:var(--ink)} .detail{color:var(--muted);font-size:13px}
+.action{font-size:13.5px;margin-top:5px;padding:3px 0 3px 10px;border-left:3px solid var(--accent)}
+.action:empty{display:none}
+a{color:var(--primary);text-decoration-color:var(--rule);text-underline-offset:2px;overflow-wrap:anywhere}
+a:focus-visible{outline:3px solid var(--accent);outline-offset:2px}
+.empty{color:var(--muted);font-size:13px;padding:11px 0;border-bottom:1px solid var(--rule)}
+@media (max-width:700px){.sheet{padding:20px 16px 40px}h1{font-size:30px}}
+@media print{body{background:#fff}.sheet{padding:0;max-width:none}}
+</style>
+</head>
+<body>
+<div class="sheet">
+  <div class="meta">{{org_name}} · updated {{updated}}</div>
+  <h1>{{client}}: where things stand</h1>
+  <p class="summary">{{summary}}</p>
+
+  <h2>Setting up</h2>
+  <!-- repeat:step -->
+  <div class="row {{step_state}}"><span class="dot"></span><div>
+    <div class="name">{{step_name}}</div>
+    <div class="detail">{{step_detail}} <a href="{{step_link}}">{{step_link}}</a></div>
+    <div class="action">{{step_action}}</div>
+  </div></div>
+  <!-- /repeat:step -->
+
+  <h2>Latest work</h2>
+  <!-- repeat:latest -->
+  <div class="row done"><span class="dot"></span><div>
+    <div class="name"><a href="{{latest_link}}">{{latest_name}}</a></div>
+    <div class="detail">{{latest_date}}</div>
+  </div></div>
+  <!-- /repeat:latest -->
+  <p class="empty">Nothing yet.</p>
+
+  <h2>Worth knowing before you speak for this client</h2>
+  <!-- repeat:finding -->
+  <div class="row"><span class="dot"></span><div>
+    <div class="name">{{finding}}</div>
+  </div></div>
+  <!-- /repeat:finding -->
+  <p class="empty">Nothing recorded.</p>
+
+  <h2>What only the agency knows (optional)</h2>
+  <!-- repeat:fact -->
+  <div class="row"><span class="dot"></span><div>
+    <div class="name">{{fact_name}}</div>
+    <div class="detail">{{fact_state}}</div>
+    <div class="action">{{fact_action}}</div>
+  </div></div>
+  <!-- /repeat:fact -->
+
+  <h2>Your search terms</h2>
+  <!-- repeat:term -->
+  <div class="row"><span class="dot"></span><div>
+    <div class="name">{{term}}</div>
+    <div class="detail">{{term_use}}</div>
+  </div></div>
+  <!-- /repeat:term -->
+  <p class="empty">None yet. Say "also watch …" to add one.</p>
+
+  <h2>Client folder</h2>
+  <div class="row"><span class="dot"></span><div>
+    <div class="name">Approval</div><div class="detail">{{folder_status}}</div>
+  </div></div>
+</div>
+</body>
+</html>

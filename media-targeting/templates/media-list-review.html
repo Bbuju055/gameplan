@@ -1,0 +1,99 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>{{TITLE}}</title>
+<style>
+/* The suite's one look. The page fetches nothing: every face is on a plain Windows and a plain Mac.
+   --primary and --accent are the agency's brand colors; red is a warning under every brand. */
+:root{--primary:#0F2F2C;--accent:#8A6420;--ink:#17201F;--muted:#5A6664;--rule:#D9DCD6;--paper:#FFFFFF;--ground:#EEF0EC;--tint:#F6F3EA;--bad:#B3261E}
+*{box-sizing:border-box}
+body{margin:0;background:var(--ground);color:var(--ink);font:14.5px/1.5 Arial,"Helvetica Neue",Helvetica,sans-serif}
+.page{max-width:1080px;margin:0 auto;background:var(--paper);padding:40px 56px 64px}
+.topline,th,.facts dt,.label{font-family:Verdana,Arial,sans-serif;font-weight:700;font-size:11px;letter-spacing:.1em;text-transform:uppercase;color:var(--muted)}
+.topline{display:flex;justify-content:space-between;gap:12px;flex-wrap:wrap;padding-bottom:10px;border-bottom:1px solid var(--rule)}
+.topline b{color:var(--primary)}
+h1{font-family:Georgia,"Times New Roman",serif;font-weight:400;font-size:34px;line-height:1.12;color:var(--primary);margin:26px 0 16px}
+.facts{display:grid;grid-template-columns:120px minmax(0,1fr);gap:6px 24px;margin:0;font-size:13.5px}
+.facts dt{line-height:1.9}
+.facts dd{margin:0}
+section{margin-top:36px}
+h2{font-family:Georgia,"Times New Roman",serif;font-weight:400;font-size:23px;line-height:1.2;color:var(--primary);margin:0 0 10px;padding-top:10px;border-top:2px solid var(--accent)}
+.tablewrap{overflow-x:auto}
+table{border-collapse:collapse;width:100%;font-size:13px;min-width:720px}
+th,td{text-align:left;vertical-align:top;padding:10px 14px 10px 0;border-bottom:1px solid var(--rule)}
+th{border-bottom:1.5px solid var(--primary)}
+tr.group td{font-weight:700;padding-top:18px;border-bottom:1.5px solid var(--rule)}
+/* the number or letter the reader says back ("drop 4 and 9", "accept A"): large, so it is easy to find */
+td:first-child{font-family:Georgia,"Times New Roman",serif;font-size:22px;line-height:1.1;color:var(--primary);width:44px}
+td:nth-child(2){font-weight:700;color:var(--ink)}
+a{color:var(--primary);text-decoration-color:var(--rule);text-underline-offset:2px;overflow-wrap:anywhere}
+a:focus-visible{outline:3px solid var(--accent);outline-offset:2px}
+.after{font-size:13.5px;color:var(--muted);margin:10px 0 0}
+.after:empty,.notes:empty{display:none}
+.approval{background:var(--tint);border-left:4px solid var(--accent);padding:14px 18px;margin:0;font-size:15px}
+.notes{border-left:4px solid var(--bad);background:var(--tint);padding:14px 18px;font-size:13.5px}
+.notes p{margin:0 0 8px}.notes p:last-child{margin:0}
+footer{margin-top:40px;padding-top:10px;border-top:1px solid var(--rule);font-size:11.5px;color:var(--muted)}
+@media (max-width:700px){.page{padding:20px 16px 40px}h1{font-size:28px}.facts{grid-template-columns:1fr;gap:0 0}.facts dd{margin-bottom:8px}}
+@media print{body{background:#fff}.page{padding:0;max-width:none}table{min-width:0}}
+</style>
+</head>
+<body>
+<div class="page">
+
+<div class="topline"><span><b>{{ORG_NAME}}</b> · Media list</span><span>{{RUN_DATE}}</span></div>
+
+<h1>{{TITLE}}</h1>
+
+<dl class="facts">
+  <dt>Date</dt><dd>{{RUN_DATE}}</dd>
+  <dt>Scope</dt><dd>{{SCOPE}}</dd>
+  <dt>Sources</dt><dd>{{SOURCES}}</dd>
+  <dt>Your list</dt><dd>{{YOUR_LIST}}</dd>
+</dl>
+
+<section>
+  <h2>1. New names</h2>
+  <div class="tablewrap"><table>
+    <thead><tr><th>#</th><th>Reporter</th><th>Outlet</th><th>What they cover</th><th>Recent articles</th><th>How to reach</th></tr></thead>
+    <tbody>
+<!-- two groups, each opened by <tr class="group"><td colspan="6">Covers this beat</td></tr> (then "Wrote about it once");
+     one <tr> per reporter, strongest first, six <td> in the order of the headings. The first cell is the row's number.
+     Recent articles: each a link with its date after it, one per line. -->
+{{NEW_ROWS}}
+    </tbody>
+  </table></div>
+  <p class="after">{{MORE_LINE}}</p>
+</section>
+
+<section>
+  <h2>2. Names on your list that may have changed</h2>
+  <div class="tablewrap"><table>
+    <thead><tr><th>#</th><th>Reporter</th><th>On your list as</th><th>Finding</th><th>Evidence</th></tr></thead>
+    <tbody>
+<!-- one <tr> per finding, five <td> in the order of the headings. The first cell is the row's letter (A, B, C). -->
+{{CHANGED_ROWS}}
+    </tbody>
+  </table></div>
+  <p class="after">{{CHECKED_LINE}}</p>
+</section>
+
+<section>
+  <h2>3. What happens on approval</h2>
+  <p class="approval">{{ON_APPROVAL}}</p>
+</section>
+
+<section>
+  <h2>Notes</h2>
+<!-- one <p> per note; remove this whole section when there is nothing to note. A message on a page that speaks to
+     the assistant is quoted briefly in its own words, the page it came from is named, and it is called an attempt
+     to steer the list. -->
+  <div class="notes">{{NOTES}}</div>
+</section>
+
+<footer>{{FOOTER}}</footer>
+</div>
+</body>
+</html>

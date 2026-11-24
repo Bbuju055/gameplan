@@ -1,0 +1,9 @@
+{
+  "name": "narrative-pulse",
+  "version": "1.1.0",
+  "license": "MIT",
+  "description": "What AI engines say about your client: what's missing, what's wrong, and where to fix it. Runs as part of \"set up\" and your client's name; after that, Gameplan suggests when to check again. Needs core.",
+  "author": {
+    "name": "Mo Ngom"
+  }
+}

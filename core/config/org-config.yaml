@@ -1,0 +1,128 @@
+# ============================================================================
+# org-config.yaml — the ONLY file in the suite that knows who the agency is.
+#
+# Shipped by the core plugin and read by every plugin through core's
+# org-config skill. Any value still marked TODO(org) is a placeholder: a skill
+# that needs it states the gap to the operator in plain English and degrades
+# per its SKILL.md — it NEVER guesses a value and never shows a key name.
+#
+# Core's setup skill ("set us up") fills a copy of this file once per agency
+# and saves it at the gameplan root as org-config.yaml, where it takes
+# precedence over this shipped default, so a plugin update never overwrites the
+# agency's values. Nothing else in the suite changes.
+# ============================================================================
+
+org:
+  name: "TODO(org)"                 # agency display name, e.g. "Lanthorn & Reed PR"
+  short_name: "TODO(org)"           # the name used in a sentence, e.g. "Lanthorn & Reed"
+  confidential_footer: "TODO(org)"  # e.g. "Prepared by Lanthorn & Reed PR - Confidential"
+  contact_email: "TODO(org)"        # agency address sent to public data sources that ask for one (SEC EDGAR)
+  approver_name: "TODO(org)"        # the person who approves what the suite makes; attached to every approval automatically when it is the only name saved
+  time_zone: "TODO(org)"            # the zone the morning check works in, e.g. "America/New_York"; asked when that check is set up, never in a conversation
+  team_approvers: []                # other people who approve work in this folder, e.g. ["J. Alvarez", "Sam Ortiz"]; when filled, a run asks once per conversation who is approving
+
+brand:
+  # Used by the deliverable renderers (dashboard, Word brief, Pulse report).
+  # The defaults are the suite's own look. An agency replaces them with its own colors and fonts.
+  colors:
+    primary: "0F2F2C"               # names, figures, table rules and filled marks, hex without #
+    accent: "8A6420"                # the rule that opens each block, bullets and small labels
+  fonts:
+    heading: "Georgia"
+    body: "Arial"
+  logo: "TODO(org)"                 # PNG/JPG file name relative to the gameplan root; unset → the org name renders as text
+
+media_log:
+  # The agency's reporter database. Read by media-targeting only, through its
+  # reporter-list skill. READ-ONLY to the suite, permanently. No skill may
+  # ever write it.
+  source: "TODO(org)"               # where it lives:
+                                    #   m365   — a workbook on SharePoint/OneDrive (the keys below)
+                                    #   google — a Google Sheet in the agency's Drive (google_sheet)
+                                    #   file   — any tool's export in the gameplan root (file_path)
+                                    #   suite  — the agency has none; the suite keeps one at
+                                    #            <gameplan root>/media/reporter-list.md
+                                    # Unset: m365 if sharepoint_site is filled; else suite if
+                                    # media/reporter-list.md exists (a first /media-list run
+                                    # creates it on approval); else no list yet.
+  sharepoint_site: "TODO(org)"      # m365: e.g. https://<tenant>.sharepoint.com/sites/<site>
+  library_path: "TODO(org)"         # m365: e.g. "Shared Documents/Media"
+  file_name: "TODO(org)"            # m365: e.g. "Media Log.xlsx"
+  main_sheet: "TODO(org)"           # m365, or an .xlsx file: worksheet name holding the log rows (a file's first sheet when unset)
+  google_sheet: "TODO(org)"         # google: the Sheet's name or link; the log rows must be its first tab
+  file_path: "TODO(org)"            # file: path under the gameplan root, e.g. "media/Media Log.xlsx" (.xlsx or .csv)
+  log_owner: "TODO(org)"            # m365, google, file: the person who promotes pending-review rows
+  header_row: 1                     # row number of the column headers
+  columns:
+    # m365, google, file: map the log's actual column headers to the plugin's canonical fields
+  # (the suite's own list has fixed columns and ignores this map).
+    # Leave a canonical field as "" if the log has no such column — skills
+    # treat missing columns as absent data, not as errors.
+    reporter_name: "TODO(org)"
+    outlet: "TODO(org)"
+    beat: "TODO(org)"
+    email: "TODO(org)"
+    geography: "TODO(org)"
+    tier: "TODO(org)"               # outlet tier/type if the log tracks one
+    notes: "TODO(org)"
+
+pending_review:
+  # Where approved new names and suggested corrections wait for the log owner.
+  # m365 and file: a SEPARATE small CSV file beside the media log (whole-file
+  # read-modify-replace). google: a new Sheet per run, named
+  # "<file_name without extension> <YYYY-MM-DD>", because the Drive connector
+  # cannot append rows. suite: none; approved names go straight into the
+  # suite's own list. Column layout is fixed by the plugin:
+  # templates/pending-review-columns.md
+  file_name: "Media Log - Pending Review.csv"
+
+digest_inbox:
+  # Mailbox subscribed to journalist source-request digests (both free).
+  # Pass B of discover-reporters searches this inbox via the M365 connector.
+  mailbox: "TODO(org)"              # e.g. digests@example.com
+  digest_senders:
+    - "TODO(org)"                   # Source of Sources digest sender address
+    - "TODO(org)"                   # Featured / HARO digest sender address
+  window_hours: 48
+
+scoring:
+  # Dimension weights for build-target-list. Judgment scores come from Claude;
+  # arithmetic runs deterministically in media-targeting/scripts/scoring.py.
+  # Must sum to 1.0.
+  weights:
+    beat_alignment: 0.35
+    outlet_fit: 0.20
+    geographic_relevance: 0.15
+    story_type_match: 0.15
+    track_record: 0.15
+  # Outlets that earn citations in AI answer engines get a bump WITHIN
+  # outlet_fit (never a separate dimension). Manually maintained seed list,
+  # kept at <gameplan root>/media/ai-cited-outlets.md.
+
+# The agency's log parsing rules (beat synonyms, delimiters, skip rules) live at
+# <gameplan root>/media/parsing-rules.md, so fixing drift is a one-line edit.
+
+history_windows_days: [30, 60, 90]  # pitch-history lookback windows
+
+discovery:
+  max_suggestions_per_run: 3        # hard cap; zero is a fine answer
+  min_recent_articles: 2            # receipts required per suggestion
+  recency_days: 90
+
+next_actions:
+  # Thresholds for the suite router's next-action rules (core/rules/next-actions.md).
+  # Days unless named otherwise. Change them here, never in the rule table.
+  max_shown: 3                      # suggestions shown at once
+  not_now_days: 3                   # how long "not now" stays quiet
+  thin_list_min: 8                  # R2: scored reporters in a segment below this is thin
+  pulse_lead_days: 7                # R3: pulse suggested this long before a FIRM/GUIDED event
+  pulse_standing_days: 30           # R3: with no such event ahead, a pulse this long after the last
+  deadline_lead_days: 5             # R4: agency deadline this close with nothing logged
+  outcomes_after_days: 10           # R6: window after a list is finalized ...
+  outcomes_until_days: 21           #     ... in which /outcomes is suggested
+  landscape_refresh_days: 91        # R8: landscape report older than this
+  snapshot_lead_days: 10            # R9: quarter ends within this
+  clips_window_days: 14             # R10: a month or quarter closed within this
+  list_stale_days: 90               # R12: reporter list or its last health check older than this
+  brief_tune_days: 30               # R13: brief not tuned in this long
+  watch_days: 14                    # the coming-up lines, in the what's-due answer and the morning check: FIRM/GUIDED events and agency deadlines this close

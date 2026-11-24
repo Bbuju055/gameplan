@@ -1,0 +1,10 @@
+---
+description: Wargame a specific upcoming competitive event. Branch the outcomes and pre-draft messaging and holding language for each.
+argument-hint: <event or competitor> [client]
+---
+
+Run the scenario-planning skill for the event described in the arguments: $ARGUMENTS
+
+If a person started this run (not `--scheduled` or `--draft-only`) and the gameplan root, found per the core plugin's client-folder contract, has no `org-config.yaml`, or has one with neither the agency's name nor an approver's name filled in, the answer opens with: "Your agency's details aren't set up yet. Say 'set us up' any time; it takes about two minutes." Nothing in the answer comes before it; a one-line working note shown earlier does not count. Say it once per conversation, then carry on. Find this out by looking at the root, silently and before the answer, never by assuming, and never say how: nothing about a file, a folder or having checked. With no gameplan root at all, say the contract's no-folder line instead, never both. Every message, the notes while it works included, is in plain words, with nothing internal named and nothing said about what was read or checked (the core plugin's `rules/voice.md`). A note while it works is one plain line, or nothing: what is being done or what comes next, in plain words, is fine; it never names anything internal and never gives a count or a result.
+
+Load this plugin's `scenario-planning` skill by name (the Skill tool, never its file) and follow it. This is the direct entry point — no prior chain has run, so first establish the event's factual ground and confidence grade yourself: load this plugin's `catalyst-timeline` skill by name for the grading rules and this plugin's `source-sweep` skill (loaded by name) for retrieval, and run a focused sweep on the event before branching. Ask for the client's core positioning if not supplied; do not wargame without it. The output says its holding statements and messages are drafts to adapt before use, and ends with scenario-planning's "Before any of this is used" list.
