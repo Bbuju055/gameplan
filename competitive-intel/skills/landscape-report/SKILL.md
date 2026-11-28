@@ -106,7 +106,7 @@ the one conflict question of the run: it covers the names the user expected and 
 discovery found. **Stop here: the research never begins in the same turn.** The user confirms
 ("looks right"), moves, adds or removes companies, and answers the conflict question. A match
 leaves that company out of the research and scenarios until someone decides; record the answer
-and any decision in the method section and, dated, in the client folder's `relationships.md` (a company already answered for there is named as answered and is not asked about again), and say so in the stop message ("Your answer and the
+and any decision in the method section and, dated, in the client folder's `relationships.md` (a company already answered for there is named as answered and is not asked about again; a part recorded as not answered is named in that question's line and adds no stop), and say so in the stop message ("Your answer and the
 decision on <company> go in the document's method section."). This is the highest-leverage correction point: a
 two-minute check here saves the whole run.
 
@@ -183,8 +183,8 @@ Nothing essential lives only in the evidence; nothing that isn't essential is on
 
 - [ ] Every forward date carries its grade; no bare dates for ESTIMATED/SPECULATIVE events. This holds on page one too: an expected event named in a bullet there carries its grade beside its window
 - [ ] Every factual claim in the evidence traces to a research hand-off fact with an authority tier
-- [ ] All ⚠ tags from the scenarios survived into the document, unless that claim is approved or
-      accepted in the claims ledger
+- [ ] All ⚠ tags from the scenarios survived into the document, the approved copy included: an accepted claim keeps its mark
+      (the client-folder contract)
 - [ ] The gaps list is non-empty (a run with zero gaps means gaps were dropped, not that none exist)
 - [ ] Every inherited-risk event has a scenario with a pre-positioning plan
 - [ ] The conflict check's answer is recorded in the method section
@@ -200,11 +200,8 @@ conflict answer is now in the method section"). A check that needed a fix is rep
 and fixed, never as passed.
 
 **Presenting Stop 2.** client-deliverable saves the copy for approval as
-`<Client> - Competitive landscape - <D Mon YYYY>.docx` in `Deliverables/<Client>/`. Then one
-message: page one's bullets in chat, the folder updates the run brings (new competitors, new
-public claims, calendar events and agency deadlines, in one plain line each), any claims the
-document relies on that are not yet approved (each in its own words), and the file's name,
-said as "in Deliverables, <Client>" and never as a path. Then one question: "Approve as <approver name>, accepting those claims?" (the claims
+`<Client> - Competitive landscape - <D Mon YYYY>.docx` in `<Client>/Drafts/`. Then one message, short because the file's first page says the rest: three lines from page one, each one or two plain sentences (where the client stands; the date that matters most, and why; the first thing to do, and by when); any claims the document relies on that are not yet approved (each in its own words), never shortened, because the answer accepts them; one line counting what approving saves to the client's records, by kind (new competitors, new public claims, calendar events, agency deadlines), each of them in the document, and the list is given when the person asks (with no client folder that line says approving saves the document and nothing else); and the file's name,
+said as "in <Client>, Drafts" and never as a path. Then one question: "Approve as <approver name>, accepting those claims?" (the claims
 clause only when there are any). Edits come in plain words: presentation changes are applied and
 shown again; a substance change (a company, a date, a scenario) goes back through its stage first
 (client-deliverable's revision rule).
@@ -212,8 +209,7 @@ shown again; a substance change (a company, a date, a scenario) goes back throug
 ## Stage 6 — Approved copy and folder updates
 
 On approval (client-deliverable's approval flow does the writing):
-- the approved copy is saved as `<Client> - Competitive landscape - <D Mon YYYY> - approved.docx`;
-  the copy shown for approval stays;
+- the approved copy is saved under the same name in `<Client>/`, the client's folder itself (`<Client> - Competitive landscape - <D Mon YYYY>.docx`); the copy shown for approval stays in `Drafts/`;
 - every claim accepted is written back to the claims ledger (`accepted by <name>, <date>`), so
   no later output asks about it again;
 - the folder updates are applied in the same act: new and re-tiered competitors to
@@ -226,8 +222,7 @@ On approval (client-deliverable's approval flow does the writing):
   document. A row the calendar already holds unchanged gets no update and no note;
 - a `landscape` row goes to `runs.md` (`approved`, the file's path).
 
-Then the close, in plain words: "Saved: <Client> - Competitive landscape - <date> - approved, in
-Deliverables, <Client>." and one line saying the folder updates shown at the approval were made. Then ask the core plugin's suite router
+Then the close, in plain words: "Saved: <Client> - Competitive landscape - <date>, in <Client>." and one line saying the folder updates shown at the approval were made, with their number and nothing else: "Those <n> updates are in <Client>'s records." No update is named again, in a sentence or in a bullet. Then ask the core plugin's suite router
 for the next step (its close-of-run surface); inside its set-up-a-client job that is the next
 step starting, and the router's line between steps takes the place of this close (the client-folder contract's "Saved:" rule):
 neither the "Saved:" line nor the update lines are said here.

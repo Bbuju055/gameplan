@@ -16,10 +16,11 @@ sends anything without a yes.
 
 Take part only when at least one is true: the user typed a Gameplan command (such as `/today`);
 they named a client of the agency; the request is about the agency's clients or work; they asked
-about Gameplan itself (what it can do, how to start, its commands); or the gameplan root holds the agency's files (a `clients/` folder or an `org-config.yaml`). Otherwise
+about Gameplan itself (what it can do, how to start, its commands); or the gameplan root holds the agency's files (the memory folder, or what an earlier version left at its top). Otherwise
 the request is not Gameplan work (their own day, a personal plan, a to-do list): answer it as
-Claude normally would, say nothing about Gameplan, its folder, setup, or clients, and follow
-nothing else in this skill.
+Claude normally would, say nothing about Gameplan, its folder, setup, or clients, and follow nothing else in this skill.
+
+A gameplan root left by an earlier version is moved before anything else is done: the contract's A folder from an earlier version (one question, asked once; on a no, stop). It is the only stop this skill adds to any request.
 
 ## Step 0 — Load
 
@@ -27,7 +28,7 @@ Silently load the core plugin's client-folder contract, the org config (for the 
 thresholds), `${CLAUDE_PLUGIN_ROOT}/ROUTING.md`, and `${CLAUDE_PLUGIN_ROOT}/rules/next-actions.md`.
 Missing contract → stop and say the core plugin is not installed, in plain words.
 
-Then, unless this is the morning check, when the gameplan root, found per the core plugin's client-folder contract, has no `org-config.yaml`, or has one with neither the agency's name nor an approver's name filled in, the answer opens with: "Your agency's details aren't set up yet. Say 'set us up' any time; it takes about two minutes." Nothing in the answer comes before it; a one-line working note shown earlier does not count. Say it once per conversation, then carry on. Find this out by looking at the root, silently and before the answer, never by assuming, and never say how: nothing about a file, a folder or having checked. With no gameplan root at all, say the contract's no-folder line instead, never both.
+Then, unless this is the morning check, when the memory folder (the core plugin's client-folder contract) has no `org-config.yaml`, or has one with neither the agency's name nor an approver's name filled in, the answer opens with: "Your agency's details aren't set up yet. Say 'set us up' any time; it takes about two minutes." Nothing in the answer comes before it; a one-line working note shown earlier does not count. Say it once per conversation, then carry on. Find this out by looking at the root, silently and before the answer, never by assuming, and never say how: nothing about a file, a folder or having checked. With no gameplan root at all, say the contract's no-folder line instead, never both.
 
 ## Job 0 — Explain Gameplan
 
@@ -84,8 +85,7 @@ For one client (only that client's folder is read; no other client's files are o
    the rest, all per `next-actions.md`. When `max_shown` or more are due, show exactly
    `max_shown`; the count covers only the items after them.
 
-For "what should I do today" or `/today` with no client: do the same for every client folder in
-the gameplan root, rank all items together, tag each with its client, and show `max_shown` plus a
+For "what should I do today" or `/today` with no client: do the same for every client folder in memory, rank all items together, tag each with its client, and show `max_shown` plus a
 count. A client with nothing due is not mentioned.
 
 Nothing about the queue is stored. It is worked out fresh every time from the files.
@@ -127,7 +127,7 @@ Where the queue shows up:
   counted together, then their own "and <n> more" for the rest. They are statements with no question, and are left out when there are none. A line never
   replaces a queue item: a lapsed event with no wargame still has that item, ranked and counted as
   usual.
-- Whenever the queue is shown in a conversation and the gameplan root's `today.md` exists but is
+- Whenever the queue is shown in a conversation and the memory folder's `today.md` exists but is
   more than 3 days old, one line after the items: "The morning check last ran on <date>; the
   computer it runs on may be off or asleep." Once per conversation.
 - Nothing follows the items but the count of the rest, those lines and the morning-check line: no
@@ -139,7 +139,7 @@ Where the queue shows up:
   the queue again and say only the top item, or every item the run itself just made due (new
   calendar rows from a landscape run, say), within `max_shown`. R15 stays out of this, except at
   the close of a brief, where it offers the next client's.
-- At the top of each brief draft and in the gameplan root's `today.md`: see the morning check
+- At the top of each brief draft and in the memory folder's `today.md`: see the morning check
   below.
 
 ## Job 4 — Act on the answer
@@ -163,14 +163,13 @@ Where the queue shows up:
   themselves, the row's `what` says so ("…, sent by Sam Ortiz"). `audience` and `claims` take what the user
   said, else `not given`; the confirmation does not mention them (a later correction row can fill
   them).
-- **"It went to the client"**, said for an approved output (after the statement its approval makes, or
-  volunteered later; this skill never asks it) → append the activity-log `deliverable` row per the
+- **"It went to the client"**, said for an approved output (whenever the person says it; nothing asks
+  for it or prompts it) → append the activity-log `deliverable` row per the
   contract (the output, its version, who received it, the date it went), and a `sent` row for it
   in `runs.md` under the capability of that output's `approved` row. Never asked
   by this skill.
 - Those rows, the R5 rows, the Declined rows, and the set-up job's `skipped` rows are the only
-  writes this skill makes to a client folder, besides the contract's lapse rule; at the gameplan
-  root it writes the morning check's `today.md` and each client's status page.
+  writes this skill makes to a client folder, besides the contract's lapse rule; in the memory folder it writes the morning check's `today.md`, and in each client's own folder its status page.
 
 ## What's coming for a client (a read of the calendar)
 
@@ -223,7 +222,7 @@ in this order and nothing else:
 - the competitor set as the landscape's Stop 1 presents it, without its conflict question, which is asked last;
 - one line that is never a question: "Tell me any time what <Client> can't say, its quiet
   periods or its spokespeople, and I'll keep them.";
-- last, the one question, both parts in one line so one reply answers both: "Approve the claims and this competitor list? And is any of these companies a client of the agency, or one we have a relationship with?" (the approver per the
+- last, the one question, both parts in one line so one reply answers both: "Approve the claims and this competitor list as <approver name>? And is any of these companies a client of the agency, or one we have a relationship with?" (the approver per the
   contract's Who approves). The line before it gives the landscape's reason for asking, once: the
   suite cannot check the agency's client list, and a company the agency represents is left out
   until someone decides.
@@ -232,7 +231,7 @@ The answer is read for all of it: the claims approved, or the ones named as not 
 moved, added or removed; the conflict answer. An answer that leaves one of the three unsettled gets
 one follow-up for that part alone, once. An approval that says nothing about the conflict question has
 not answered it: ask that one question again, alone, with no thanks or acknowledgement before it. If it is still not answered, record it as not
-answered, never as "no conflict", and go on. Then write, before anything else runs: the approvals in
+answered, never as "no conflict", and go on. An answer to one part is recorded as said: "none is a client of ours" is written as not a client, with the relationship part not answered, never a "no relationship" nobody said; that part is not asked again in this conversation. Then write, before anything else runs: the approvals in
 the claims ledger; the folder as approved (approving the claims approves the folder: `README.md`
 and an `approved` `onboard` row, in the same act); the confirmed set and the space searched in
 `competitors.md`, as confirmed by that person on that date; and the conflict answer in
@@ -240,7 +239,7 @@ and an `approved` `onboard` row, in the same act); the confirmed set and the spa
 
 **3. Run to the end without stopping.** Steps 2 to 5 run in order, each by its own skill, and
 none of them stops for its own approval inside this job. No step is cut short to save time or usage: each does all it would do run by itself (the check of what Claude says is the full first run, every question asked twice and the baseline saved). A choice the job makes for itself is never recorded as a person's decision: no line it writes carries a person's name for something that person did not say. Each saves what it made for approval
-(its copy for approval in Deliverables, a `draft` row in `runs.md`) and the job goes on to the
+(its copy for approval in the client's `Drafts/`, a `draft` row in `runs.md`) and the job goes on to the
 next. What the research finds on the way (a dated event, a new public claim, a changed status) is
 written to the folder when it is found, sourced as always and marked `not yet reviewed`, because
 the steps after it read the folder (the contract's Proposed updates, In the set-up job). The daily
@@ -265,7 +264,7 @@ practice client), there is no closing review: go straight to the ending. Otherwi
 Then one short block for each step that made something, in step order, three lines at most, because
 the files carry the rest:
 
-- the file's name, said as the contract says it, with "in Deliverables, <Client>" (the daily brief has no file: its block is headed "Daily brief: the news watch is set up", never the
+- the file's name, said as the contract says it, with "in <Client>, Drafts" (the daily brief has no file: its block is headed "Daily brief: the news watch is set up", never the
   words "no file", and gives the watch terms in one line and
   what yesterday would have brought, as a count and the top story);
 - one sentence: the most important thing in it;
@@ -283,7 +282,7 @@ The answer is read for each block:
   line that step brought. A claim that is not approved is written `accepted by <name>, <date>` only when the answer names it
   ("accept it", or the claim in the person's words); otherwise its row stays as it was and the
   approved copy keeps its mark. For each company found after the first stop, the answer given by
-  the approval is written to `relationships.md`, dated, and the note comes off its line in `competitors.md`; a company named as a client is left out as the landscape's conflict rule says.
+  the approval is written to `relationships.md`, dated, and the note comes off its line in `competitors.md`; the approved copy's method line says they were confirmed with the approval, with its date, never that they have no conflict answer; a company named as a client is left out as the landscape's conflict rule says.
 - **Held**: it stays as saved, at `draft`; what's due shows it, and nothing warns about it.
 - **A change asked for**: that step's own revision rule runs; the changed copy is shown alone and
   approved on its own.
@@ -305,7 +304,7 @@ done before or the steps left.
 **6. The ending.** After the closing review's answer, rebuild the status page (Job 6) so it
 shows every step, then:
 
-> **<Client> is fully set up.** Everything is in Deliverables, <Client>.
+> **<Client> is fully set up.** Everything is in <Client>'s folder.
 >
 > **From here:**
 > - **Each morning:** open this project and ask *what's due today?* and I'll start <Client>'s news brief.
@@ -313,8 +312,7 @@ shows every step, then:
 > - **When news breaks about a competitor:** say *what do we say if…*
 > - **The rest shows up when you ask what's due:** when to check the AI engines again, when the landscape needs a refresh, and when a coverage report is due.
 
-The morning line says what is true for this root. With the morning check running (the gameplan
-root's `today.md` is dated within the last 3 days), it ends instead: "<Client>'s draft news brief is
+The morning line says what is true for this root. With the morning check running (the memory folder's `today.md` is dated within the last 3 days), it ends instead: "<Client>'s draft news brief is
 already there to review." Nothing in this ending says Gameplan acts unasked.
 
 Name only what was set up: a skipped brief drops its mention from the first line; a skipped media
@@ -331,7 +329,7 @@ check (below); a no is recorded like any declined suggestion.
 A line shown while the page is rebuilt says "Updating <client>'s page of where things stand.",
 never "the status page".
 
-`Deliverables/<Client name>/<Client name> - Where things stand.html`, made from
+`<Client name>/<Client name> - Where things stand.html` at the top of the gameplan root, made from
 `${CLAUDE_PLUGIN_ROOT}/templates/status-page.html`. What the page shows, and where each part comes
 from, is in `${CLAUDE_PLUGIN_ROOT}/templates/status-page.md` and nowhere else: read it first and
 fill the page from it. Rebuilt after each
@@ -390,9 +388,9 @@ another client's block shows, and its "and <n> more" counts only that client's r
 has no cap on its coming-up, late and passed lines: each is written. The cap on them in Job 3
 is for the conversation only.
 
-`today.md`, at the gameplan root, is rewritten every morning: the date, one block per client with
+`today.md`, in the memory folder, is rewritten every morning: the date, one block per client with
 something in it, then, when there are any, "Nothing due for <n> other clients." It names every client, so it is
-internal: never copied into a client folder or `Deliverables/`, never quoted to a client. Its
+internal: never copied into a client folder or a client's own folder, never quoted to a client. Its
 date is how anyone can tell the check is still running.
 
 Unattended, the router writes nothing except the contract's lapse rule and `today.md`. Answers
@@ -406,8 +404,7 @@ read today's date and the time with gameplan-render clock --zone America/New_Yor
 isn't told one. The zone is `org.time_zone`; when it is not saved yet, use the one the person has
 given, or ask once before creating the job, "Which time zone should the morning check use?". The
 zone is saved when the job is created, in that same step and never before: as its full name
-("Eastern" is `America/New_York`) in the gameplan root's `org-config.yaml`, changing only that
-value and reading it back. When no job is created (the session has no scheduler, or the person
+("Eastern" is `America/New_York`) in the agency's `org-config.yaml` (in the memory folder), changing only that value and reading it back. When no job is created (the session has no scheduler, or the person
 only asked what the job would be), nothing is saved. Keep the time the person names, exactly. With
 none named, set it 30 minutes before the earliest "draft ready by" time in the clients'
 `monitoring/cadence.md` files (7:00 AM local when there are none). Then say in plain words where it

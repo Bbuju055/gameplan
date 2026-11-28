@@ -39,7 +39,7 @@ where we stand before a readout.
 The Pulse report: one page with the five dimensions, the three findings that matter, what to fix
 at the source (a page on the client's own site to update, another outlet to ask for a correction,
 or news the engines will likely catch up with), and the next run date, plus an appendix with every
-question and the engines' words behind each finding. It's saved in `Deliverables`, then the client's name, and your
+question and the engines' words behind each finding. It's saved in the client's own folder, and your
 approval of the findings is its approval: nothing asks again. Two lists travel with it: outlets the
 engines cite, which the next target list for this client favours, and companies the engines name
 that we are not tracking, to look at when the landscape is next refreshed. What the engines get wrong can also become the

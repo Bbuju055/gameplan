@@ -20,7 +20,7 @@ JSON or skill names. The client's first media list is built when core sets the c
   → curate-and-archive   (plain-English editing → "use this list", the one stop: one new file in
                           the archive; approved discoveries go where the list keeps
                           new names, through reporter-list)
-  → export-list          (the spreadsheet, with an Angle column, in Deliverables/<Client>/Pitch lists/)
+  → export-list          (the spreadsheet, with an Angle column, in <Client>/Pitch lists/)
 
 /outcomes  (1–2 weeks later)  : confirm what landed, record it, coverage report;
                                 feeds the track-record scoring dimension
@@ -31,7 +31,7 @@ ask in plain words           : anything about the archive, or re-export a saved 
 
 ## Org-agnostic by construction
 
-**Every org-specific fact lives in the suite's `org-config.yaml`** (shipped by the core plugin, filled copy at the gameplan root): firm name,
+**Every org-specific fact lives in the suite's `org-config.yaml`** (shipped by the core plugin, the agency's own values in the memory folder): firm name,
 media log location and column map, pending-review filename, digest mailbox,
 branding. Skills read config first and treat any value still
 marked `TODO(org)` as a **named gap**: they say what's missing in plain English
@@ -50,8 +50,18 @@ scripts/scoring.py      deterministic composite scoring (judgment stays Claude's
 templates/              target-list spec · coverage-report spec · pending-review columns
 ```
 
+## Install
+
+In Claude Code: `/plugin install media-targeting --marketplace Bbuju055/gameplan`. It needs `core` beside it.
+In the Claude app, the [getting-started guide](../core/GUIDE.md) says how.
+
 ## Changelog
 
+- **1.2.0**: a pitch list shows rank, reporter, outlet and angle, with the score and reasons in
+  the spreadsheet; a client's media list has a group for reporters who wrote about the client and
+  says so when nobody on the beat was found; an angle never links two approved claims; a contact
+  that was found is never saved as not found; the coverage report gives a found reporter a line
+  only when their pitch produced a placement.
 - **1.1.0**: pitch lists build straight away with an angle per reporter and one stop ("use this
   list"); the quiet-period question is asked once when nothing is recorded; files in
   Deliverables/<Client>/; the media list ends core's set-up job without a pitch-list offer;
@@ -64,8 +74,8 @@ templates/              target-list spec · coverage-report spec · pending-revi
 - **New names never go into the media log.** Approved discoveries (at finalize) and approved
   names from a media list go where the agency's list keeps new names: the separate
   pending-review file or sheet, or the suite's own list when the agency has none. Degrades to a
-  for-review CSV in Deliverables if that cannot be written.
-- **The archive is files in the project's folder** (`media/archive/`), written only by
+  for-review CSV in the client's own folder if that cannot be written.
+- **The archive is files in the project's folder** (`media/archive/` in the memory folder), written only by
   `scripts/archive.py`: one new file per finalized list and per outcomes pass, never changed
   afterwards. It covers lists saved in that folder; pitches made elsewhere won't show, and
   anything kept in an earlier database isn't imported.

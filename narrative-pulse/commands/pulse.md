@@ -5,7 +5,7 @@ argument-hint: <client> [--baseline]
 
 Run Narrative Pulse for: $ARGUMENTS
 
-If a person started this run (not `--scheduled` or `--draft-only`) and the gameplan root, found per the core plugin's client-folder contract, has no `org-config.yaml`, or has one with neither the agency's name nor an approver's name filled in, the answer opens with: "Your agency's details aren't set up yet. Say 'set us up' any time; it takes about two minutes." Nothing in the answer comes before it; a one-line working note shown earlier does not count. Say it once per conversation, then carry on. Find this out by looking at the root, silently and before the answer, never by assuming, and never say how: nothing about a file, a folder or having checked. With no gameplan root at all, say the contract's no-folder line instead, never both. Every message, the notes while it works included, is in plain words, with nothing internal named and nothing said about what was read or checked (the core plugin's `rules/voice.md`). A note while it works is one plain line, or nothing: what is being done or what comes next, in plain words, is fine; it never names anything internal and never gives a count or a result.
+If a person started this run (not `--scheduled` or `--draft-only`) and the memory folder (the core plugin's client-folder contract) has no `org-config.yaml`, or has one with neither the agency's name nor an approver's name filled in, the answer opens with: "Your agency's details aren't set up yet. Say 'set us up' any time; it takes about two minutes." Nothing in the answer comes before it; a one-line working note shown earlier does not count. Say it once per conversation, then carry on. Find this out by looking at the root, silently and before the answer, never by assuming, and never say how: nothing about a file, a folder or having checked. With no gameplan root at all, say the contract's no-folder line instead, never both. Every message, the notes while it works included, is in plain words, with nothing internal named and nothing said about what was read or checked (the core plugin's `rules/voice.md`). A note while it works is one plain line, or nothing: what is being done or what comes next, in plain words, is fine; it never names anything internal and never gives a count or a result.
 
 1. **Client folder and question set.** Resolve the client folder per the core plugin's
    client-folder contract (pulse-run's step 1 loads it; if core is not installed, stop and say
@@ -26,7 +26,7 @@ If a person started this run (not `--scheduled` or `--draft-only`) and the gamep
    noise, the scores are saved as the baseline, and there is no comparison. Without
    `--baseline`, the run is scored on its own and is not compared with the baseline; say so once,
    in plain words ("This run isn't compared with the first one yet."), never as a version number.
-3. **One stop: approving the findings.** Nothing renders without the approval recorded in the
+3. **One stop: approving the findings.** The page is saved for approval first, in the client's `Drafts/`, and the review shows only what needs a decision. No approved report is made without the approval recorded in the
    run's review file, under the approver name (the client-folder contract's Who approves). That
    one approval also approves the report; nothing asks again. A disputed finding is called
    "wrong" only when it traces to an approved claim or a filing.

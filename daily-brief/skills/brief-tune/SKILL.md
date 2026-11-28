@@ -49,7 +49,7 @@ lines; the quoted reasons stay in the file) with its evidence in a few words ("S
 roundups: you dropped them 14 times"), one line on what was looked at and
 found healthy (the null results are part of the report: "queries look well-fitted" is a
 finding), and one question: "Make these changes?" A yes applies them all; "all but the second",
-or naming the ones to skip, applies the rest. The list, the healthy line and the question are one
+or naming the ones to skip, applies the rest. After the yes the reply is one line and no list: "Those <n> changes are made." No change is named again. The list, the healthy line and the question are one
 message, the last one: nothing said earlier in the run stands in for the list. Nothing takes
 effect until that answer; it converts
 the proposals to canon with a change-log entry, like every other client folder update.

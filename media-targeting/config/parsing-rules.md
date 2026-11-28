@@ -6,7 +6,7 @@ skipped 5") and the operator explains the skipped rows. Fixing drift is an edit 
 the agency's copy — never a skill rewrite.
 
 **This is the shape only: the values below are illustrative examples, not rules.
-The agency's rules live at `<gameplan root>/media/parsing-rules.md`, because a
+The agency's rules live at `<memory>/media/parsing-rules.md`, because a
 plugin's own folder can't be written once uploaded.** Until that file exists,
 `reporter-list` parses conservatively and reports its coverage every run.
 

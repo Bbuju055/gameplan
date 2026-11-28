@@ -25,7 +25,7 @@
       "name": "client-folder",
       "kind": "files",
       "required": true,
-      "config": ["<gameplan-root>/clients/<slug>/ per the competitive-intel schema"],
+      "config": ["<memory>/clients/<slug>/ per the competitive-intel schema"],
       "degradation": "none: no client folder, no run. Point to client onboarding."
     }
   ],

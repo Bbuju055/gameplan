@@ -1,7 +1,7 @@
 # Template spec: daily-brief (deliverable type: daily-brief)
 
 The structure spec for the daily Word deliverable. brief-render reads this before building the
-docx. If a `.docx` binary template is registered later in the gameplan root's `templates/`, it
+docx. If a `.docx` binary template is registered later in the memory folder's `templates/`, it
 takes precedence and ships with its own same-name mapping spec; until then this spec IS the
 format, built element by element.
 

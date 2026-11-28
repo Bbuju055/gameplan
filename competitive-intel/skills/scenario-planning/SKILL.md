@@ -44,6 +44,8 @@ Every wargame must include the branches where the news is *bad for the client* â
 
 ## Output
 
+Run by itself, a wargame is a Word file and five lines in chat, never the whole wargame as a reply. Every part below goes in the file, in this order, with nothing cut. Inside a landscape run nothing is saved here: the scenarios go in the landscape's own file.
+
 ```
 ## Wargame: <space / client> â€” built <date>
 Holding statements and messages are drafts to adapt before use.
@@ -78,6 +80,22 @@ activate a full wargame.
 - The client has seen the language for the uncomfortable branches
 ```
 
+### The file
+
+Build it with the core plugin's `gameplan-render build --type wargame` (load its `office-files` skill by name for the command and the content shape) and save it as `<Client> - Wargame - <D Mon YYYY>.docx` in the client's `Drafts/` (the client-folder contract's Where people find things; with no client folder, in the `Drafts/` of the topic's own folder). With no gameplan root at all there is nowhere to save it: the contract's no-folder rule applies, and the wargame is shown in the conversation. It does not stop for approval. "Approve it" is client-deliverable's approval: the approved copy is built in the client's folder itself, under the same name, with a `deliverable` row at `approved`; the `wargame` row stays as written.
+
+If the command refuses the content, fix the field it names and build again. If the file still cannot be made, say in plain words that it was not made and why, and give the lines below without the Saved line. Never paste the wargame into the reply in its place.
+
+### What is said in chat
+
+Five lines at most, each one or two plain sentences, no headings. The lines above the Saved line are written in the content file's `say` (three lines at most, each 260 characters at most: the command builds no file otherwise, and the detail is in the file). Say them as the result gives them back, word for word, then the Saved line and the next step.
+
+1. What was made, and for which events.
+2. The one outcome that most needs the client's attention, and why.
+3. The messages that still need support: how many, and the first in its own words. Left out when there are none.
+4. "Saved: <Client> - Wargame - <D Mon YYYY>, in <Client>, Drafts."
+5. The one next step (Recording the run, below).
+
 ## Recording the run
 
 When the wargame is for a client with a folder, append a `wargame` row to its `runs.md`, per the
@@ -85,9 +103,7 @@ client-folder contract's "Appending a row": the wargame, `draft`, naming every e
 and followed by `serves` with the calendar ids of those already in the calendar (events still
 only proposed have no id yet; the name is what the
 router's rule R7 matches them by). Run directly rather than inside the landscape chain, then ask the core
-plugin's suite router for the next step (its close-of-run surface) and give it in one line
-just above "Before any of this is used", which stays the last section of the reply: nothing
-follows it.
+plugin's suite router for the next step (its close-of-run surface) and give it in one line, the last of the five: nothing follows it.
 
 ## Constraints
 

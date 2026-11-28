@@ -28,7 +28,8 @@ found or confirmed appears in it; that stays in the run record.
    pitched is in none of the document's counts.
 5. **Discovery performance** — when any placement came from a discovered or
    reactive reporter, one line naming it: discovery earning its keep is a
-   story the agency should get to tell.
+   story the agency should get to tell. With no such placement the line is left out:
+   a found reporter who did not cover is counted with the rest, never named.
 6. **(Optional) AI-answer visibility** — when checked: whether won coverage
    surfaces in AI-engine answers about the client, with the query themes used.
 7. **How the outcomes were found** ("placements found by search and confirmed

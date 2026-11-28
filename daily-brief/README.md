@@ -7,7 +7,7 @@ happens at each step, and how to read the output.
 
 The daily client media brief as a Claude plugin: gather scored signal, cluster duplicates to the canonical
 source, curate a categorized draft with client-specific Signal lines, stop once for the
-approval, render the standard Word deliverable into the client's Deliverables folder, and log every decision for the
+approval, render the standard Word deliverable into the client's own folder, and log every decision for the
 monthly tuning loop. Sibling to competitive-intel, both built on the core plugin's
 client-folder contract: same gameplan root, same client folders, same voice and approval
 discipline; that plugin owns strategy (landscapes,
@@ -49,7 +49,7 @@ clients/<slug>/
   monitoring/queries.md     query rows built from the folder: category order, boolean terms, priority, sources
   monitoring/sources.md     publication tiers 5→0; unrated sources get "?" and a proposal, never a guess
   monitoring/cadence.md     publication days, holidays, times, reviewer, recipients, alert path
-  briefs/<YYYY-MM-DD>/      draft.md · decisions.md   (the Word file goes to Deliverables/<Client>/Daily briefs/)
+  briefs/<YYYY-MM-DD>/      draft.md · decisions.md   (the Word file goes to <Client>/Daily briefs/)
   briefs/skipped.md         one line per calendar skip
 ```
 
@@ -79,8 +79,15 @@ asks for it, the optional morning check (core's `/today --scheduled`, one job pe
 `cadence.md` (holidays skip with a record; a human asking always overrides). A new client is picked
 up with no setup.
 
+## Install
+
+In Claude Code: `/plugin install daily-brief --marketplace Bbuju055/gameplan`. It needs `core` beside it.
+In the Claude app, the [getting-started guide](../core/GUIDE.md) says how.
+
 ## Changelog
 
+- **1.2.0**: a story in the review is four lines with its link on the headline; briefs are saved
+  in the client's own folder.
 - **1.1.0**: setup from a sample brief with defaults; one approval under the setup name; the Word
   file in Deliverables/<Client>/Daily briefs/; no unvetted banner; tuning as one list; any
   monitoring connector used in briefs a person starts.

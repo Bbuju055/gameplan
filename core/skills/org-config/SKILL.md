@@ -15,16 +15,21 @@ never from memory of some other agency.
 
 ## Resolving the file
 
-Read, in order, the first that exists:
+Two files, read together:
 
-1. `org-config.yaml` at the **gameplan root** (the root found as the client-folder contract
-   says, the same root that holds `clients/`, `templates/`, and `Deliverables/`). This
-   is the agency's filled copy; a plugin update never touches it.
+1. `<memory>/org-config.yaml`, the agency's own (the memory folder as the client-folder contract
+   gives it). It holds only the values the agency set, and a plugin update never touches it.
 2. `${CLAUDE_PLUGIN_ROOT}/config/org-config.yaml`, the shipped default in the core plugin.
+
+A value the agency's file gives is the agency's. Every other value is the shipped default's, value by value: a key the agency's file
+leaves out or leaves unset is read from the default, so an update's defaults reach an agency that
+is already set up. With no agency file, every value is the default's. A file moved from an
+earlier version may be long (a whole copy of an older default); it is read the same way and never
+rewritten.
 
 In an eval, a fixture presented as the org config stands in for both.
 
-**Not set up yet.** In a run a person started, when the gameplan root, found per the core plugin's client-folder contract, has no `org-config.yaml`, or has one with neither the agency's name nor an approver's name filled in, the answer opens with: "Your agency's details aren't set up yet. Say 'set us up' any time; it takes about two minutes." Nothing in the answer comes before it; a one-line working note shown earlier does not count. Say it once per conversation, then carry on. Find this out by looking at the root, silently and before the answer, never by assuming, and never say how: nothing about a file, a folder or having checked. With no gameplan root at all, say the contract's no-folder line instead, never both.
+**Not set up yet.** In a run a person started, when the memory folder (the core plugin's client-folder contract) has no `org-config.yaml`, or has one with neither the agency's name nor an approver's name filled in, the answer opens with: "Your agency's details aren't set up yet. Say 'set us up' any time; it takes about two minutes." Nothing in the answer comes before it; a one-line working note shown earlier does not count. Say it once per conversation, then carry on. Find this out by looking at the root, silently and before the answer, never by assuming, and never say how: nothing about a file, a folder or having checked. With no gameplan root at all, say the contract's no-folder line instead, never both.
 It is never said in an unattended run, and never during setup itself (core's setup skill opens
 with its own line). After it, carry on with the shipped default; nothing is written until they
 ask for setup. Every command and the suite router carry these sentences word for word, because a
@@ -42,7 +47,7 @@ run reads its entry point before anything else: keep them identical.
 | `org.time_zone` | The zone a scheduled task works in, as a name such as `America/New_York`. Asked once, when the morning check is set up; a conversation never needs it, because the person's own clock gives the time | the suite router (the morning check), daily-brief's draft-only runs |
 | `brand.colors`, `brand.fonts`, `brand.logo` | Primary and accent colors (hex, no #), heading and body fonts, logo path (relative to the gameplan root) | client-deliverable, brief-render, pulse-render |
 | `media_log`, `pending_review`, `digest_inbox` | Where the media log lives (`media_log.source`: a Microsoft 365 workbook, a Google Sheet, a file in the gameplan root, or the suite's own list) and its column map, where pending-review rows go, the digest mailbox. An unset `source` means Microsoft 365 when the SharePoint location is filled, else the suite's own list when it exists, else no list yet | media-targeting only (the log and pending review through its reporter-list skill) |
-| `scoring`, `parsing`, `history_windows_days`, `discovery` | Tuning for the targeting chain; the agency's parsing rules and AI-cited outlets are files in `<gameplan root>/media/` | media-targeting only |
+| `scoring`, `parsing`, `history_windows_days`, `discovery` | Tuning for the targeting chain; the agency's parsing rules and AI-cited outlets are files in `<memory>/media/` | media-targeting only |
 | `next_actions` | Thresholds for the next-action rules: how many suggestions show at once, how long "not now" lasts, each rule's day counts, and the morning check's look-ahead | the suite router |
 
 ## The TODO(org) rule
@@ -70,4 +75,4 @@ A value still equal to `TODO(org)` is a placeholder, not a value.
 - An unfilled `org.name` or `org.short_name` is a gap only where the name would be printed; in
   conversation, say "the agency".
 
-`grep 'TODO(org)'` on the agency's `org-config.yaml` lists exactly the values it still has to fill.
+What an agency still has to fill is every key above that its own file does not give and the shipped default leaves `TODO(org)`.

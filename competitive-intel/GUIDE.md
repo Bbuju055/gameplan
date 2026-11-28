@@ -52,7 +52,7 @@ news, each marked by how sure it is, and a scenario plan for every high-stakes e
 possible outcomes, the messages, and a holding statement for each. No questions in between.
 
 **4. Stop 2: approve the landscape.**
-- You get page one in the chat and the Word file in `Deliverables`, then the client's name:
+- You get page one in the chat and the Word file in the client's own folder, under `Drafts` until you approve it:
   *Veltrix Bio - Competitive landscape - 12 Nov 2026*.
 - **Page one is bullets:** where the client stands, the three dates that matter, the biggest risk
   and opportunity, and what to do by when. The evidence follows: competitors, the timeline, the

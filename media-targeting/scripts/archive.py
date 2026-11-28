@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """media-targeting's campaign archive: plain files in the gameplan root, no database.
 
-Layout, under <root>/media/archive/:
+Layout, under <root>/Gameplan memory - DO NOT DELETE/media/archive/ (the suite's memory folder):
   lists/<id>.json     one finalized list version
   outcomes/<id>.json  one confirmed /outcomes pass
 
@@ -96,11 +96,18 @@ def _parse_date(value: Any, label: str) -> datetime.date:
         raise ArchiveError("bad_date", f"{label} must be YYYY-MM-DD, got {value!r}") from exc
 
 
+MEMORY = "Gameplan memory - DO NOT DELETE"  # the suite's records, one folder at the top of the gameplan root
+EARLIER = ("org-config.yaml", "clients", "media", "build", "templates", "today.md", "Deliverables")
+
+
 def _archive_dir(root: str) -> Path:
     path = Path(root)
     if not path.is_dir():
         raise ArchiveError("no_root", f"the gameplan root {root!r} is not a folder")
-    return path / "media" / "archive"
+    if not (path / MEMORY).is_dir() and any((path / name).exists() for name in EARLIER):
+        raise ArchiveError("earlier_layout", "this folder was made by an earlier version of Gameplan; it is moved to "
+                           "the new layout first (the core plugin's gameplan-render migrate), and nothing was read or saved")
+    return path / MEMORY / "media" / "archive"
 
 
 def _read_payload(path: str) -> Any:

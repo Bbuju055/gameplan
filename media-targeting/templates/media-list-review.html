@@ -14,6 +14,9 @@ body{margin:0;background:var(--ground);color:var(--ink);font:14.5px/1.5 Arial,"H
 .topline,th,.facts dt,.label{font-family:Verdana,Arial,sans-serif;font-weight:700;font-size:11px;letter-spacing:.1em;text-transform:uppercase;color:var(--muted)}
 .topline{display:flex;justify-content:space-between;gap:12px;flex-wrap:wrap;padding-bottom:10px;border-bottom:1px solid var(--rule)}
 .topline b{color:var(--primary)}
+/* one band, two states: the warning red until it is approved, then the brand's own color */
+.band{display:inline-block;font-family:Verdana,Arial,sans-serif;font-weight:700;font-size:11px;letter-spacing:.1em;text-transform:uppercase;background:var(--bad);color:#fff;padding:3px 8px;margin-top:14px}
+body[data-doc-state="approved"] .band{background:var(--primary)}
 h1{font-family:Georgia,"Times New Roman",serif;font-weight:400;font-size:34px;line-height:1.12;color:var(--primary);margin:26px 0 16px}
 .facts{display:grid;grid-template-columns:120px minmax(0,1fr);gap:6px 24px;margin:0;font-size:13.5px}
 .facts dt{line-height:1.9}
@@ -40,10 +43,12 @@ footer{margin-top:40px;padding-top:10px;border-top:1px solid var(--rule);font-si
 @media print{body{background:#fff}.page{padding:0;max-width:none}table{min-width:0}}
 </style>
 </head>
-<body>
+<body data-doc-state="for-approval">
 <div class="page">
 
 <div class="topline"><span><b>{{ORG_NAME}}</b> · Media list</span><span>{{RUN_DATE}}</span></div>
+
+<div class="band">{{STATE_BAND}}</div>
 
 <h1>{{TITLE}}</h1>
 
@@ -81,7 +86,7 @@ footer{margin-top:40px;padding-top:10px;border-top:1px solid var(--rule);font-si
 </section>
 
 <section>
-  <h2>3. What happens on approval</h2>
+  <h2>3. {{SECTION_3_TITLE}}</h2>
   <p class="approval">{{ON_APPROVAL}}</p>
 </section>
 

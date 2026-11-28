@@ -47,7 +47,7 @@ clients/<slug>/narrative/
 ```
 
 Reads positioning, pipeline, approved-claims, constraints, the calendar, and competitors, whose
-`Class definition searched:` line the landscape writes. Writes only inside `narrative/` and the client's `Deliverables/` folder,
+`Class definition searched:` line the landscape writes. Writes only inside `narrative/` and the client's own folder,
 where the report is "What Claude says about <client>" when Claude was the only engine measured.
 
 ## Hand-offs
@@ -58,8 +58,15 @@ from `competitors.md`), never from its blocks (the core plugin's `rules/hand-off
 AI-cited-outlets list) and `HAND-OFF: names` (re-screen candidates, which competitor-discovery checks at the next landscape). Both
 are proposals; the owning plugin's operator decides.
 
+## Install
+
+In Claude Code: `/plugin install narrative-pulse --marketplace Bbuju055/gameplan`. It needs `core` beside it.
+In the Claude app, the [getting-started guide](../core/GUIDE.md) says how.
+
 ## Changelog
 
+- **1.2.0**: the review saves its page first and shows only what needs a decision; a first
+  measurement cut short is scored on what was recorded and says it is partial.
 - **1.1.0**: no setup question and no question confirmation; one approval that also approves the
   report; the report is named for the engines measured and saved in Deliverables/<Client>/.
 - **1.0.0**: first public release. Planned: a diff against the baseline, catalyst-driven

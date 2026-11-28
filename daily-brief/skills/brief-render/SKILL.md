@@ -21,7 +21,7 @@ meaningful.
 ## Template resolution
 
 Deliverable type **daily-brief**, template `daily-brief.md` (a structure spec, not a
-binary). Resolution order: the gameplan root's `templates/`, then the working directory's
+binary). Resolution order: the memory folder's `templates/`, then the working directory's
 `templates/`, then this plugin's `templates/` (shipped default). If a `.docx` template is later
 registered alongside the spec, prefer it and read its same-name mapping spec first; it is filled
 with `gameplan-render fill` instead of built.
@@ -67,8 +67,7 @@ fills the footer and `brand.*` supplies the fonts and colors the spec names.
       flags, nothing from its reviewer note.
 - [ ] Residue check: no other client's name anywhere in the file, including metadata.
 - [ ] File named `<Client> - Daily brief - <D Mon YYYY>.docx` (alert addenda:
-      `<Client> - Alert brief - <D Mon YYYY> <HHMM>.docx`), saved in
-      `Deliverables/<Client>/Daily briefs/` (the core plugin's client-folder contract). brief-run names it to
+      `<Client> - Alert brief - <D Mon YYYY> <HHMM>.docx`), saved in `<Client>/Daily briefs/` (the core plugin's client-folder contract). brief-run names it to
       the user, once; this skill says nothing about it.
 
 If any check fails, fix the document before delivery — never deliver with a caveat in place of

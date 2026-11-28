@@ -19,9 +19,9 @@ The log owner promotes rows into the main log on their own schedule and deletes 
 | Reporter | name |
 | Outlet | verified from bylines; for a health-check row, the outlet the latest byline shows |
 | Beat | as evidenced by the cited articles; for a health-check row, the beat the latest bylines show |
-| Email | how to reach them, publicly sourced only and labelled: a published email, the outlet's tips or desk address, a contact form, or a public handle; else "not found: verify manually" |
-| Geography | if evidenced |
-| Source | "Discovery", "Source request", "Media list" ("Media list: one article" for a name added on one article), or a health-check finding: "Health check: moved", "Health check: left beat", "Health check: left journalism" |
+| Email | how to reach them, publicly sourced only and labelled: a published email, the outlet's tips or desk address, a contact form, or a public handle; "not found: verify manually" only when no way to reach them of any kind was found, never beside one that was |
+| Geography | where the outlet publishes from or the reporter is based, as the outlet or the article shows it; never assumed from the language it is written in; empty when nothing shows it |
+| Source | "Discovery", "Source request", "Media list" ("Media list: one article" for a name added on one article, "Media list: wrote about the client" for one added because they wrote about the client), or a health-check finding: "Health check: moved", "Health check: left beat", "Health check: left journalism" |
 | Evidence | the citation links (the receipts that justified the row) |
 | Campaign | client - release title; for a media list, client or topic - "media list" |
 | Status | left blank for the log owner ("added" / "rejected" / notes) |

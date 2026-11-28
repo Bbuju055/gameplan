@@ -1,9 +1,22 @@
 {
   "name": "daily-brief",
-  "version": "1.1.0",
+  "displayName": "Gameplan: Daily brief",
+  "version": "1.2.0",
   "license": "MIT",
   "description": "Your client's news every morning, explained and ready to send as a Word file, plus coverage reports. Set up as part of \"set up\" and your client's name; then ask what's due each morning. Needs core.",
+  "icon": "./logo.svg",
   "author": {
     "name": "Mo Ngom"
-  }
+  },
+  "homepage": "https://github.com/Bbuju055/gameplan",
+  "repository": "https://github.com/Bbuju055/gameplan",
+  "keywords": [
+    "public relations",
+    "communications",
+    "life sciences",
+    "biotech",
+    "media monitoring",
+    "news brief",
+    "coverage report"
+  ]
 }

@@ -22,7 +22,7 @@ R2, R6, R12 media-targeting; R3 narrative-pulse; R7, R8, R9 competitive-intel; R
 daily-brief; R4, R5, R16 core (R4 suggests drafting in conversation when competitive-intel,
 which owns the wargame, is not installed). R1, R11 and R14 were retired in 1.1.0 (setting a client
 up now covers the first media list, the folder is approved at onboarding, and whether an output
-went to the client is never asked: its approval says once that the person can tell the suite); their ids are never reused.
+went to the client is never asked and nothing is said about it: the person says so when they choose); their ids are never reused.
 
 "Today" is as the client-folder contract says. "Matching log row" for an agency deadline means an activity-log row
 that serves the deadline's event and delivers what the deadline names. A FIRM event has passed

@@ -58,7 +58,8 @@ usage than a quick question.
 
 ## Install (about five minutes)
 
-1. In the Claude app, open **Customize** (in the left sidebar), then **Plugins**.
+1. In the Claude app, open **Customize** (in the left sidebar), then **Plugins**. If your sidebar
+   shows **Plugins** itself, open that.
 2. Click **Add**, then **Add marketplace**, and type `Bbuju055/gameplan`.
 3. Install core, then the other four plugins it lists.
 
@@ -66,8 +67,11 @@ On a Team or Enterprise plan, an owner can install Gameplan for everyone instead
 **Organization settings**, then **Plugins & skills**.
 
 If you were sent the five plugin files instead, click **Add**, then **Upload plugin**, once for
-each file. To install a newer version later, upload the new file the same way. The app asks
-"Replace existing plugin?"; say yes.
+each file. To install a newer version later, upload the new file the same way; when the app asks
+whether to replace the plugin or keep both, replace it.
+
+If you installed Gameplan from the link before, remove those five plugins first: an uploaded file
+does not replace a plugin installed from the link, and the app keeps both copies.
 
 ## Set up your workspace
 
@@ -98,10 +102,10 @@ Bio* (typing `/gameplan Veltrix Bio` does the same). Claude starts at once. It s
 
 In between it works through every step without asking:
 
-| Step | What you get, in `Deliverables`, then the client's name |
+| Step | What you get, in a folder under the client's own name |
 |---|---|
 | Client folder | The client's folder, approved under your name with its claims |
-| Competitive landscape | *Veltrix Bio - Competitive landscape - 12 Nov 2026 - approved*, a Word file: one page of bullets, then the evidence |
+| Competitive landscape | *Veltrix Bio - Competitive landscape - 12 Nov 2026*, a Word file: one page of bullets, then the evidence |
 | What Claude says about the client | A page: is the client mentioned, what's wrong, what to fix and where |
 | Daily brief | The news watch set up; the first brief comes the first morning you ask for it |
 | Media list | *Veltrix Bio - Media list - 12 Nov 2026*, a page |
@@ -144,7 +148,7 @@ then type *Veltrix*. To stop a long job, stop it the way you stop any Claude rep
 
 | You want | Type or say | What you get |
 |---|---|---|
-| The competitive landscape again (set up already did the first) | `/landscape Veltrix Bio` | A Word file in the client's folder under `Deliverables`: one page of bullets (where the client stands, the dates that matter, the biggest risk and opportunity, what to do by when), then the evidence. It stops twice: to confirm the competitors, and to approve the result. |
+| The competitive landscape again (set up already did the first) | `/landscape Veltrix Bio` | A Word file in the client's own folder: one page of bullets (where the client stands, the dates that matter, the biggest risk and opportunity, what to do by when), then the evidence. It stops twice: to confirm the competitors, and to approve the result. |
 | Only the dates that will make news | `/triggers` and a company or field | A dated calendar, every date marked by how certain it is. |
 | What to say if an event goes either way | `/wargame` and the event | The possible outcomes, with key messages and a holding statement for each, to adapt and approve. |
 | A quick background check | *catch me up on Orvane before the call* | A short answer, with its sources. |
@@ -153,7 +157,7 @@ then type *Veltrix*. To stop a long job, stop it the way you stop any Claude rep
 
 | You want | Type or say | What you get |
 |---|---|---|
-| Today's media brief | `/brief Veltrix`, or *what's due today?* | A draft to review: drop, reword or add stories in plain words, then say *approved*. You get the Word file in `Deliverables`, then the client's name, then `Daily briefs`; attach it to your email as usual. |
+| Today's media brief | `/brief Veltrix`, or *what's due today?* | A draft to review: drop, reword or add stories in plain words, then say *approved*. You get the Word file in the client's own folder, under `Daily briefs`; attach it to your email as usual. |
 | A coverage report for a period | `/clips Veltrix September` | The coverage, the messages it carried, and which pieces the firm drove (from the pitches you told Claude about), reviewed by you before the Word report is made. |
 
 ### Pitch
@@ -213,12 +217,11 @@ You can also ask *what can Gameplan do?* or *which commands are there?* at any t
 
 ## Good to know
 
-- **Where things are saved.** Everything you open is in the `Deliverables` folder inside your
-  project's folder, one folder per client, with plain names such as *Veltrix Bio - Competitive
+- **Where things are saved.** Everything you open is in a folder under the client's own name, inside your project's folder. What still needs your approval is in its `Drafts` folder, and what you approved is at the top. One more folder, *Gameplan memory - DO NOT DELETE*, is where Gameplan keeps what it knows about your clients: never delete it, and you never need to open it. Files have plain names such as *Veltrix Bio - Competitive
   landscape - 12 Nov 2026*. Word files for the landscape, briefs and coverage reports; spreadsheets
   for pitch lists; pages for the media list, the AI check, and the client's page of where things
   stand. Double-click a page to open it in your browser. Every reply that saves something names it.
-  You never need to open the `clients` folder: that is where Gameplan keeps its records.
+  
 - **Your own search terms.** Say *also watch "borrowed immunity" for Veltrix* (or *also look at*
   a company) and every search for that client includes it from then on.
 - **Services you already use.** If a news-monitoring or journalist database service is connected

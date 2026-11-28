@@ -1,8 +1,7 @@
 # Pulse report — template spec (read before filling `pulse-report.html`)
 
-One self-contained HTML file per run, in the client's `Deliverables/<Client>/` folder, named
-`<Client> - <What Claude says | What AI engines say> - <D Mon YYYY>.html` (with ` - 2` when a second
-run is made the same day). It is in the suite's one look and fetches nothing: Georgia for the client's
+One self-contained HTML file per run, in the client's `<Client>/` folder (its `Drafts/` for the copy for approval), named
+`<Client> - <What Claude says | What AI engines say> - <D Mon YYYY>.html` (with ` - v2` when a second run is made the same day). It is in the suite's one look and fetches nothing: Georgia for the client's
 name, the figures and quoted words, Arial for text, Verdana for small labels, all three on every
 Windows and Mac.
 
@@ -35,8 +34,7 @@ other engines' rows; nothing is filled in for that. ACCURACY's value counts what
 date or unapproved, never the correct statements or a total checked. `{{*_TREND}}` is "baseline" or "no
 comparison yet": runs are not compared yet.
 
-Findings: exactly three `<article class="finding">` blocks, in rank order (wrong, unapproved claim repeated, stale, absent, names, outlets, flags): `{{F_KIND}}` (Wrong / Unapproved claim
-repeated / Stale / Absent / Name / Outlet / Flag), `{{F_QUOTE}}` (the engine's sentence, verbatim),
+Findings: exactly three `<article class="finding">` blocks, in rank order (wrong, unapproved claim repeated, stale, absent, names, outlets, flags): `{{F_KIND}}` (Wrong / Unapproved claim repeated / Out of date / Absent / Name / Outlet / Flag), `{{F_QUOTE}}` (the engine's sentence, verbatim),
 `{{F_ENGINE}}`, `{{F_CHECK}}` (the client-folder line, in plain words), `{{F_MEANING}}` (one sentence).
 Fewer than three findings: fill the remaining blocks with "No further finding at this level" and say
 so honestly rather than promoting a minor item.

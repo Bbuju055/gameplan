@@ -9,6 +9,7 @@ before it hands the file over. It is on the Bash tool's PATH while core is enabl
 
 Usage
   gameplan-render build --type daily-brief|alert-brief|quarterly-snapshot|clips-report|coverage-report|landscape-report
+                               |wargame|catalyst-timeline
                         --content <file.json> --root <gameplan root> --client <slug> --out <file.docx>
                         [--decisions <briefs/YYYY-MM-DD/decisions.md>]
   gameplan-render fill --template <agency .docx|.pptx> --content <file.json>
@@ -16,10 +17,14 @@ Usage
   gameplan-render check <file.docx|.pptx|.csv|.html> --root <gameplan root> --client <slug>
   gameplan-render read-xlsx <file.xlsx> [--sheet NAME]   (one sheet's rows, the first unless named; read-only)
   gameplan-render clock --zone <America/New_York>        (the date and time in that zone, for a scheduled task)
+  gameplan-render migrate --root <gameplan root> [--apply]   (a folder from 1.0.0 or 1.1.0: list what moves; --apply moves it)
 
 --client names the client folder the file is for; leave it out for work with no client folder (a
 keyword clips report, a list not linked to a client), and every client folder counts as another
-client in the residue check. The org config is <root>/org-config.yaml when it exists, else the core plugin's shipped default.
+client in the residue check. The suite's records are in one folder at the top of the gameplan root, named
+"Gameplan memory - DO NOT DELETE": the client folders (clients/<slug>/), the agency's org-config.yaml, and the
+content files (build/). The org config is the core plugin's shipped default with the agency's own values over
+it, value by value, so the agency's file holds only what it set.
 Prints one JSON object. status is "ok" or "error" (with "reason"); on "error" no file is written.
 Exit 0 for both, 2 for bad arguments.
 """
@@ -27,6 +32,8 @@ import argparse, datetime, html, json, os, re, struct, sys, urllib.parse, zipfil
 
 SHIPPED_ORG_CONFIG = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "..", "..", "config", "org-config.yaml")
 UNSET = "TODO(org)"
+MEMORY = "Gameplan memory - DO NOT DELETE"  # the owner's name for it, 2026-11-24; never hidden, never renamed
+EARLIER = ("org-config.yaml", "clients", "media", "build", "templates", "today.md")  # at the top in 1.0.0 and 1.1.0
 GRAY = "595959"  # small and secondary text; dark enough to read printed
 INK = "262626"
 GOOD, WARN, BAD = "1E7A4C", "A86200", "B3261E"  # status only, the same under every brand, always beside a word
@@ -89,9 +96,40 @@ def parse_scalar(rest, path, n):
     return None if value in ("", UNSET) else value
 
 
+def memory(root):
+    return os.path.join(root, MEMORY)
+
+
+def layout(root):
+    """"current" once the memory folder is there, "earlier" for a folder 1.0.0 or 1.1.0 left, else "new"."""
+    if os.path.isdir(memory(root)):
+        return "current"
+    if any(os.path.exists(os.path.join(root, name)) for name in EARLIER + ("Deliverables",)):
+        return "earlier"
+    return "new"
+
+
+def need_current_layout(root):
+    if layout(root) == "earlier":
+        raise RenderError("this folder was made by an earlier version of Gameplan, and nothing was made in it; "
+                          "it is moved to the new layout first (gameplan-render migrate --root <the folder>)")
+
+
 def resolve_org(root):
-    path = os.path.join(root, "org-config.yaml")
-    cfg = read_org_config(path if os.path.exists(path) else SHIPPED_ORG_CONFIG)
+    """The shipped default with the agency's own values over it, value by value: the agency's file holds
+    only what it set, and a value it left unset is the default's."""
+    need_current_layout(root)
+    cfg = read_org_config(SHIPPED_ORG_CONFIG)
+    path = os.path.join(memory(root), "org-config.yaml")
+    if os.path.exists(path):
+        for section, values in read_org_config(path).items():
+            for key, value in values.items():
+                if isinstance(value, dict):
+                    kept = cfg[section].get(key)
+                    cfg[section][key] = {**(kept if isinstance(kept, dict) else {}),
+                                         **{k: v for k, v in value.items() if v is not None}}
+                elif value is not None:
+                    cfg[section][key] = value
     brand = cfg["brand"]
     colors, fonts = brand.get("colors") or {}, brand.get("fonts") or {}
     for k in ("primary", "accent"):
@@ -863,8 +901,166 @@ def layout_landscape_report(c, org):
     return d, "%s Competitive landscape %s" % (client, prepared), org["footer"], None
 
 
+SAY_LINES, SAY_LENGTH = 3, 260  # the lines a run says in chat about a file it made: few, and short
+
+
+def lines_to_say(c):
+    """The few lines the run says in chat when it hands the file over. They are written with the content,
+    held to a length here, and handed back in the result to be said as they are: wording alone did not hold
+    a "line" to a line (2026-11-24, a 124-word one twice). The detail is in the file."""
+    lines = text_list(c, "say", "") if isinstance(c.get("say"), list) and c.get("say") else []
+    if not 1 <= len(lines) <= SAY_LINES:
+        raise RenderError("the content file's say holds 1 to %d lines, the ones said in chat when the file is handed "
+                          "over; it has %d" % (SAY_LINES, len(lines)))
+    for i, line in enumerate(lines):
+        if len(line) > SAY_LENGTH or "\n" in line:
+            raise RenderError("the content file's say[%d] is %d characters; a line said in chat is one line of %d at most: "
+                              "the detail is in the file" % (i, len(line), SAY_LENGTH))
+    return lines
+
+
+def named_in_lines(lines, root, client):
+    """Another client's name in a line to be said, as the residue check finds one in a file."""
+    competitors = competitors_text(root, client)
+    for slug, name in other_clients(root, client):
+        pattern = re.compile(r"\b(%s|%s)\b" % (re.escape(name), re.escape(slug)), re.I)
+        if any(pattern.search(line) for line in lines) and not re.search(r"\b%s\b" % re.escape(name), competitors, re.I):
+            raise RenderError("another client's name, %s, appears in the lines to say (the content file's say)" % name)
+
+
+def planning_head(d, org, c, kind, line):
+    """The top of a wargame or a timeline run by itself: what it is, whose, and whether it is approved."""
+    client, space, approved = need(c, "client", str, ""), need(c, "space", str, ""), c.get("approved")
+    d.masthead(kind, state=("Draft for review", "watch") if approved is None else None)
+    d.text(client, 26, after=4, font=org["heading"], color=org["primary"])
+    d.text(space, 11, after=3, color=INK)
+    d.text(line, 9, after=6 if approved else 14, color=GRAY)
+    if approved is not None:
+        d.para([d.mark("Approved", "approved"), d.run(" by %s, %s" % (need(approved, "name", str, "approved."), need(approved, "date", str, "approved.")), 9, color=GRAY)], after=14)
+    return client
+
+
+def lines_or_none(d, c, key):
+    """A part's lines, or one line saying the run found none: a part is never left out, so a reader knows it was looked for."""
+    items = text_list(c, key, "") if c.get(key) else []
+    if not isinstance(c.get(key, []), list):
+        raise RenderError("the content file's %s is not a list" % key)
+    for line in items:
+        d.para(tagged_runs(d, line, 10), after=3, numbered=True)
+    if not items:
+        d.text("None found in this run.", 10, after=3, color=GRAY)
+
+
+def layout_wargame(c, org):
+    """competitive-intel's wargame run by itself: each event's branches with their messages and holding
+    statement, then what holds across events, the watch triggers and what to do before any of it is used.
+    Every key message carries exactly one claim tag, or no file is made."""
+    lines_to_say(c)
+    d = Docx(org)
+    primary, face = org["primary"], org["heading"]
+    section = lambda title: d.text(title, 14, after=8, before=20, font=face, color=primary, keep=True, over=org["accent"])
+    client = planning_head(d, org, c, "Wargame", "Prepared %s" % need(c, "prepared_date", str, ""))
+    d.text("Holding statements and messages are drafts to adapt before use.", 10, after=10, color=INK)
+    events = need(c, "events", list, "")
+    if not events:
+        raise RenderError("the content file's events holds no event; a wargame is of at least one")
+    for i, ev in enumerate(events):
+        w = "events[%d]." % i
+        d.para([d.run("%s · %s · " % (need(ev, "event", str, w), need(ev, "window", str, w)), 13, font=face, color=primary)]
+               + grade_runs(d, need(ev, "grade", str, w), 13), after=4, before=16, keep=True)
+        branches = need(ev, "branches", list, w)
+        if not branches:
+            raise RenderError("the content file's %sbranches holds no branch" % w)
+        for j, b in enumerate(branches):
+            bw = "%sbranches[%d]." % (w, j)
+            outcome = need(b, "outcome", str, bw)
+            if b.get("likelihood"):
+                outcome += " (estimated likelihood: %s)" % need(b, "likelihood", str, bw)
+            d.text(outcome, 10.5, after=3, before=10, bold=True, color=primary, keep=True, over="D9D9D9")
+            for label, key in (("Read: ", "read"), ("Narrative terrain: ", "terrain")):
+                d.para([d.label(label, label_color(org), bold=True), d.run(need(b, key, str, bw), 10)], after=3)
+            d.para([d.label("Key messages", label_color(org), bold=True)], after=2, before=4)
+            for k, m in enumerate(text_list(b, "messages", bw)):
+                if len(CLAIM_TAG.findall(m)) != 1:
+                    raise RenderError("the content file's %smessages[%d] carries %d claim tags; every key message carries "
+                                      "exactly one, \u2713substantiated or \u26a0needs-support" % (bw, k, len(CLAIM_TAG.findall(m))))
+                d.para(tagged_runs(d, m, 10), after=3, numbered=True)
+            d.para([d.label("Posture: ", label_color(org), bold=True), d.run(need(b, "posture", str, bw), 10)], after=3, before=2)
+            d.para([d.label("Holding statement: ", label_color(org), bold=True), d.run(need(b, "holding", str, bw), 10.5, font=face)],
+                   after=6, before=4, shade=tint(primary, TINT), edge=org["accent"])
+            if b.get("qa"):
+                d.para([d.label("Questions and answers", label_color(org), bold=True)], after=2, before=2)
+                for q in text_list(b, "qa", bw):
+                    d.text(q, 10, after=3)
+        if ev.get("pre_positioning"):
+            d.para([d.label("Pre-positioning plan: ", label_color(org), bold=True), d.run(need(ev, "pre_positioning", str, w), 10)],
+                   after=6, before=6)
+    section("Across events")
+    lines_or_none(d, c, "cross_event")
+    section("Watch triggers")
+    lines_or_none(d, c, "watch")
+    section("Before any of this is used")
+    for line in text_list(c, "before_use", ""):
+        d.para(tagged_runs(d, line, 10), after=3, numbered=True)
+    return d, "%s Wargame %s" % (client, c["prepared_date"]), org["footer"], None
+
+
+def layout_catalyst_timeline(c, org):
+    """competitive-intel's catalyst timeline run by itself: the next 90 days, the rest of the horizon, where
+    events collide, the events whose outcome reprices the client, and what could not be dated."""
+    lines_to_say(c)
+    d = Docx(org)
+    primary, face = org["primary"], org["heading"]
+    section = lambda title: d.text(title, 14, after=8, before=20, font=face, color=primary, keep=True, over=org["accent"])
+    head = lambda *names: [[d.label(n, GRAY, bold=True)] for n in names]
+    client = planning_head(d, org, c, "Catalyst timeline",
+                           "Prepared %s · Horizon %s" % (need(c, "prepared_date", str, ""), need(c, "horizon", str, "")))
+
+    def dated(key, title):
+        section(title)
+        events = need(c, key, list, "") if key == "next_90" else c.get(key, [])
+        if not isinstance(events, list):
+            raise RenderError("the content file's %s is not a list" % key)
+        if not events:
+            d.text("None found in this run.", 10, after=3, color=GRAY)
+            return
+        rows = [head("When", "Who", "What", "How sure", "Basis", "Why it matters for %s" % client)]
+        for i, r in enumerate(events):
+            w = "%s[%d]." % (key, i)
+            rows.append([[d.run(need(r, "when", str, w), 9.5, bold=True, color=primary)], need(r, "who", str, w), need(r, "what", str, w),
+                         grade_runs(d, need(r, "grade", str, w), 9.5), need(r, "basis", str, w), need(r, "why", str, w)])
+        d.table(rows, widths=[0.12, 0.13, 0.18, 0.13, 0.19, 0.25])
+
+    dated("next_90", "Next 90 days")
+    dated("later", "90 days to the horizon")
+    section("Collision windows")
+    lines_or_none(d, c, "collisions")
+    section("Inherited-risk events")
+    risks = c.get("inherited_risk", [])
+    if not isinstance(risks, list):
+        raise RenderError("the content file's inherited_risk is not a list")
+    if risks:
+        rows = [head("When", "Owner", "Event", "How sure", "What the outcome means for %s" % client, "Be on the record by")]
+        for i, r in enumerate(risks):
+            w = "inherited_risk[%d]." % i
+            rows.append([[d.run(need(r, "when", str, w), 9.5, bold=True, color=primary)], need(r, "who", str, w), need(r, "what", str, w),
+                         grade_runs(d, need(r, "grade", str, w), 9.5), need(r, "means", str, w), need(r, "deadline", str, w)])
+        d.table(rows, widths=[0.12, 0.14, 0.18, 0.13, 0.28, 0.15])
+    else:
+        d.text("None found in this run.", 10, after=3, color=GRAY)
+    section("Undateable but live")
+    lines_or_none(d, c, "undateable")
+    section("Dating gaps")
+    lines_or_none(d, c, "dating_gaps")
+    d.text("How sure: FIRM means the date is fixed; GUIDED means the company promised it and it can slip; "
+           "ESTIMATED means we worked it out from the record; SPECULATIVE means possible, not anchored.", 8.5, after=6, before=12, color=GRAY)
+    return d, "%s Catalyst timeline %s" % (client, c["prepared_date"]), org["footer"], None
+
+
 LAYOUTS = {"daily-brief": layout_daily_brief, "alert-brief": layout_alert_brief, "quarterly-snapshot": layout_quarterly_snapshot,
-           "clips-report": layout_clips_report, "coverage-report": layout_coverage_report, "landscape-report": layout_landscape_report}
+           "clips-report": layout_clips_report, "coverage-report": layout_coverage_report, "landscape-report": layout_landscape_report,
+           "wargame": layout_wargame, "catalyst-timeline": layout_catalyst_timeline}
+SAID = ("wargame", "catalyst-timeline")  # the files handed over with a few lines the command holds to a length
 
 
 # ---------------------------------------------------------------- fill an agency's template
@@ -976,7 +1172,7 @@ def fill_pictures(name, xml, pictures, files, org, done):
 
 
 def run_fill(args):
-    keep_content_out_of_deliverables(args)
+    keep_content_out_of_sight(args)
     ext = os.path.splitext(args.template)[1].lower()
     if ext not in (".docx", ".pptx") or os.path.splitext(args.out)[1].lower() != ext:
         raise RenderError("fill takes a .docx or .pptx template and writes the same type")
@@ -1125,7 +1321,8 @@ def client_title_name(first_line):
 def other_clients(root, client):
     """(slug, name) for every client folder but `client`'s. A folder whose name cannot be read stops
     the check: a name that is not known cannot be looked for."""
-    clients = os.path.join(root, "clients")
+    need_current_layout(root)
+    clients = os.path.join(memory(root), "clients")
     if client is not None and not os.path.isdir(os.path.join(clients, client)):
         raise RenderError("there is no client folder %s under %s" % (client, clients))
     others = []
@@ -1152,7 +1349,7 @@ def competitors_text(root, client):
     if client is None:
         return ""
     try:
-        with open(os.path.join(root, "clients", client, "competitors.md"), encoding="utf-8") as fh:
+        with open(os.path.join(memory(root), "clients", client, "competitors.md"), encoding="utf-8") as fh:
             return fh.read()
     except OSError:
         return ""
@@ -1335,16 +1532,158 @@ def clock(zone, now=None):
             "weekday": at.strftime("%A")}
 
 
-def keep_content_out_of_deliverables(args):
-    """Deliverables holds only what a person opens, approves or sends; a content file belongs in the root's build folder."""
-    inside = os.path.relpath(os.path.abspath(args.content), os.path.abspath(args.root))
-    if inside.split(os.sep)[0].lower() == "deliverables":
-        raise RenderError("the content file is in the Deliverables folder, which holds only what a person opens; "
-                          "write it in the build folder at the gameplan root")
+def keep_content_out_of_sight(args):
+    """A client's folder and the top of the gameplan folder hold only what a person opens, approves or
+    sends; a content file inside the gameplan folder belongs in the memory folder's build folder."""
+    need_current_layout(args.root)
+    inside = os.path.relpath(os.path.realpath(args.content), os.path.realpath(args.root))
+    if not inside.startswith(os.pardir) and inside.split(os.sep)[0] != MEMORY:
+        raise RenderError("the content file is where a person would see it; write it in the memory folder's build folder "
+                          "(%s)" % os.path.join(MEMORY, "build"))
+
+
+# ---------------------------------------------------------------- a folder from 1.0.0 or 1.1.0
+
+def is_draft(path):
+    """In a client's folder of 1.1.0: a Word or PowerPoint file not yet approved, or a page still for approval."""
+    stem, ext = os.path.splitext(os.path.basename(path))
+    if ext.lower() in (".docx", ".pptx"):
+        return not stem.endswith(" - approved")
+    if ext.lower() == ".html":
+        try:
+            with open(path, encoding="utf-8", errors="replace") as fh:
+                # the state an element carries, not the one a stylesheet rule names
+                return re.search(r'<[a-zA-Z][^<>]*\sdata-doc-state="for-approval"', fh.read()) is not None
+        except OSError:
+            return False
+    return False
+
+
+def plan_moves(root):
+    """(steps, shown, left). steps are the renames in the order they run, each relative to the root; shown is
+    the same told as where each thing is now and where it ends up; left is what stays at the top untouched."""
+    steps, shown = [], []
+    for name in EARLIER:
+        if os.path.exists(os.path.join(root, name)):
+            steps.append((name, os.path.join(MEMORY, name)))
+            shown.append((name, os.path.join(MEMORY, name)))
+    deliverables, loose = os.path.join(root, "Deliverables"), False
+    for name in sorted(os.listdir(deliverables)) if os.path.isdir(deliverables) else []:
+        folder = os.path.join(deliverables, name)
+        if not os.path.isdir(folder):
+            loose = True  # not made by the suite: it stays, and so does the folder it is in
+            continue
+        steps.append((os.path.join("Deliverables", name), name))
+        shown.append((os.path.join("Deliverables", name), name))
+        for item in sorted(os.listdir(folder)):
+            if os.path.isfile(os.path.join(folder, item)) and is_draft(os.path.join(folder, item)):
+                steps.append((os.path.join(name, item), os.path.join(name, "Drafts", item)))
+                shown.append((os.path.join("Deliverables", name, item), os.path.join(name, "Drafts", item)))
+    moved = {src.split(os.sep)[0] for src, _ in shown}
+    if loose:
+        moved.discard("Deliverables")
+    left = [n for n in sorted(os.listdir(root)) if n not in moved and n != MEMORY and not n.startswith(".")]
+    return steps, shown, left
+
+
+def record_updates(root, shown):
+    """{new path: (text now, text after)} for each record that names a file by where it used to be, so a row
+    that points to a deliverable still opens it. Read before anything moves; written after."""
+    files = sorted(((a.replace(os.sep, "/"), b.replace(os.sep, "/")) for a, b in shown), key=lambda m: -len(m[0]))
+    updates = {}
+    for top in ("clients", "media"):
+        for folder, _, names in os.walk(os.path.join(root, top)):
+            for name in names:
+                if not name.endswith(".md"):
+                    continue
+                old = os.path.join(folder, name)
+                try:
+                    with open(old, encoding="utf-8") as fh:
+                        text = fh.read()
+                except (OSError, UnicodeDecodeError):
+                    continue
+                after = text
+                for a, b in files:
+                    if a.startswith("Deliverables/"):
+                        after = after.replace(a + "/", b + "/") if "." not in os.path.basename(a) else after.replace(a, b)
+                after = after.replace("Deliverables/", "")  # a row whose file is gone: the folder it names is gone too
+                if after != text:
+                    updates[os.path.join(memory(root), os.path.relpath(old, root))] = (text, after)
+    config = os.path.join(root, "org-config.yaml")
+    if os.path.isfile(config):
+        with open(config, encoding="utf-8") as fh:
+            text = fh.read()
+        after = re.sub(r'(:\s*")((?:%s)/)' % "|".join(n for n in EARLIER if "." not in n), r"\g<1>%s/\2" % MEMORY, text)
+        if after != text:
+            updates[os.path.join(memory(root), "org-config.yaml")] = (text, after)
+    return updates
+
+
+def run_migrate(args):
+    root, state = args.root, layout(args.root)
+    if not os.path.isdir(root):
+        raise RenderError("there is no folder at %s" % root)
+    steps, shown, left = plan_moves(root) if state == "earlier" else ([], [], [])
+    result = {"status": "ok", "layout": state, "moves": [{"from": a, "to": b} for a, b in shown], "left": left}
+    if not args.apply or state != "earlier":
+        return result
+    moving = {src.split(os.sep)[0] for src, _ in shown}  # what leaves the top, so its name there is free
+    taken = [dst for src, dst in steps if os.path.exists(os.path.join(root, dst)) and dst.split(os.sep)[0] not in moving]
+    if taken:
+        return {**result, "status": "error", "reason": "nothing was changed: the gameplan folder already holds %s, where a "
+                "folder from Deliverables would go; rename one of the two, then move again" % ", ".join(sorted(taken))}
+    updates = record_updates(root, shown)
+    done, made, written = [], [], []
+    try:
+        for src, dst in steps:
+            parent = os.path.dirname(os.path.join(root, dst))
+            if not os.path.isdir(parent):
+                os.mkdir(parent)
+                made.append(parent)
+            os.rename(os.path.join(root, src), os.path.join(root, dst))
+            done.append((src, dst))
+        for path, (_, after) in updates.items():
+            written.append(path)
+            with open(path, "w", encoding="utf-8", newline="") as fh:
+                fh.write(after)
+    except OSError as e:
+        stuck = []
+        for path in written:
+            try:
+                with open(path, "w", encoding="utf-8", newline="") as fh:
+                    fh.write(updates[path][0])
+            except OSError:
+                stuck.append(os.path.relpath(path, root))
+        for src, dst in reversed(done):
+            try:
+                os.rename(os.path.join(root, dst), os.path.join(root, src))
+            except OSError:
+                stuck.append(dst)
+        for folder in reversed(made):
+            try:
+                os.rmdir(folder)
+            except OSError:
+                pass
+        why = e.strerror or str(e)
+        if stuck:
+            return {**result, "status": "error", "reason": "the move was refused part way (%s) and these could not be put "
+                    "back: %s. Nothing is lost; each is named with where it now is" % (why, ", ".join(stuck))}
+        return {**result, "status": "error", "reason": "the move was refused here (%s), so nothing was changed. It can be "
+                "done by hand: drag each thing in \"moves\" from where it is to where it goes" % why}
+    result = {**result, "layout": layout(root), "records_updated": len(updates)}
+    deliverables = os.path.join(root, "Deliverables")
+    try:
+        os.rmdir(deliverables)  # only when the move left it empty
+    except OSError:
+        # it still holds something of the agency's own (named in "left"), or deleting was refused here:
+        # an empty folder left at the top is named, so the person is told they can delete it
+        if os.path.isdir(deliverables) and not os.listdir(deliverables):
+            result["empty"] = ["Deliverables"]
+    return result
 
 
 def run_build(args):
-    keep_content_out_of_deliverables(args)
+    keep_content_out_of_sight(args)
     if args.type not in LAYOUTS:
         raise RenderError("there is no %s layout; this command builds %s" % (args.type, ", ".join(sorted(LAYOUTS))))
     if not args.out.endswith(".docx"):
@@ -1366,7 +1705,13 @@ def run_build(args):
             first = next((i for i, (a, b) in enumerate(zip(wanted, given)) if a != b), min(len(wanted), len(given)))
             raise RenderError("the content file's gaps do not match the decisions log's gaps acknowledged, line for line "
                               "(first difference at gap %d); change the content file, never the decisions log" % (first + 1))
-    return deliver(args, lambda tmp: doc.save(tmp, title, footer))
+    said = lines_to_say(content) if args.type in SAID else None
+    if said:
+        named_in_lines(said, args.root, args.client)
+    result = deliver(args, lambda tmp: doc.save(tmp, title, footer))
+    if said:
+        result["say"] = said  # said in chat as they are, before the Saved line
+    return result
 
 
 def parse_args(argv):
@@ -1390,6 +1735,9 @@ def parse_args(argv):
     x.add_argument("file")
     x.add_argument("--sheet")
     sub.add_parser("clock").add_argument("--zone", required=True)
+    m = sub.add_parser("migrate")
+    m.add_argument("--root", required=True)
+    m.add_argument("--apply", action="store_true")
     return ap.parse_args(argv)
 
 
@@ -1404,6 +1752,8 @@ def main(argv, stdout=sys.stdout):
             result = clock(args.zone)
         elif args.cmd == "read-xlsx":
             result = run_read_xlsx(args)
+        elif args.cmd == "migrate":
+            result = run_migrate(args)
         else:
             problems, links, allowed = run_check(args.file, args.root, args.client)
             result = {"status": "ok", "path": args.file, "links": links, "residue": "clean" if not problems else "found", "problems": problems}

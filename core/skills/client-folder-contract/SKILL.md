@@ -19,8 +19,10 @@ from memory.
 
 ### The gameplan root
 
-The gameplan root is the agency's workspace: the folder that holds `clients/`, `templates/`,
-`Deliverables/` and the agency's own `org-config.yaml`. **Nothing else is left in the root.** A record
+The gameplan root is the agency's Gameplan folder. At its top it holds one folder per client and
+per topic, each under its own name, with what a person opens (Where people find things, below), and
+one folder the suite keeps for itself, `Gameplan memory - DO NOT DELETE/` (the memory folder, next
+section). **Nothing else is left in the root.** A record
 is changed by editing the file itself, never a temporary copy beside it, and a run makes no folder
 or file there that this contract does not name: never a folder of things to delete, a `.tmp` or
 `.new` file, or a note to itself. A file made by mistake that cannot be removed is named to the
@@ -30,13 +32,56 @@ person once, in plain words, so they can remove it. It is, in order:
    CLAUDE.md), an optional override for a team that keeps its files elsewhere;
 2. the folder added to this project in the Claude app, or the folder Claude Code was started in.
 
-An empty folder is a new agency, not an error: `clients/` and `Deliverables/` are made there the
-first time something is saved to them. With no folder at all (a project with nothing added),
+An empty folder is a new agency, not an error: the memory folder and a client's own folder are
+made there the first time something is saved to them. With no folder at all (a project with nothing added),
 say once, in plain words, that Gameplan keeps each client's files in a folder on their computer
 and that they add one in the project under Context, "Add a local folder"; never mention config
 files, paths or settings. Then offer what can be done for this run only. With no folder, a run
 saves nothing and never offers to build a client folder or a file: there is nowhere to keep one.
 What it makes is shown in the conversation.
+
+### The memory folder
+
+`<gameplan root>/Gameplan memory - DO NOT DELETE/`, written `<memory>/` in the suite's skills. It
+holds everything the suite remembers between runs and nothing a person needs to open:
+
+| In `<memory>/` | What it is |
+|---|---|
+| `clients/<slug>/` | each client's folder: the fixed file set below, and what each plugin keeps for the client |
+| `org-config.yaml` | the agency's settings, only the values it set (the core plugin's `org-config` skill) |
+| `media/` | the reporter list the suite keeps, the saved pitch lists and their results, the agency's parsing rules |
+| `build/` | the content file each Word or PowerPoint file is built from (the `office-files` skill) |
+| `templates/` | an agency's own Word or PowerPoint templates, once it has registered one |
+| `today.md` | the morning check's printout, when the check is scheduled |
+
+The folder is made the first time something is saved, and is never renamed and never hidden: it
+is the suite's whole memory of every client, and a folder a person can see is one they back up
+and carry with the rest. To a person it is "memory", never the folder's full name or a path
+("saved to memory"), and its files are never named (Storage stays out of sight).
+
+### A folder from an earlier version
+
+Gameplan 1.0.0 and 1.1.0 kept these at the top of the gameplan root (`clients/`, `Deliverables/`,
+`org-config.yaml`, `media/`, `build/`). A root that has any of them and no memory folder is from
+an earlier version, and nothing is read or written in that folder until it is moved: the suite's
+commands refuse it. So the first request in such a folder, whatever it is, starts here:
+
+1. Run `gameplan-render migrate --root <gameplan root>` (the office-files skill gives its path).
+   It changes nothing and lists what would move.
+2. Say it in one message and ask, asked once: "Your Gameplan folder is from an earlier version.
+   I'll move your clients' records and your settings into one folder called Gameplan memory, and
+   give each client a folder of its own with its files. Nothing is deleted. Move it now?" Name
+   anything the list leaves where it is.
+3. On yes, run it again with `--apply`, read the result, say in one line that it is done, and go
+   on with what was asked. If the result is an error, nothing was changed: say so in plain words
+   and give the result's list, which names each thing to drag and where it goes.
+   If the result has `empty`, the move worked and a folder it emptied could not be deleted here:
+   say in that same line that the old Deliverables folder is now empty and can be deleted. It is not a question.
+4. On no, say that Gameplan cannot work in this folder until it is moved, and stop. It is asked
+   again the next time something is asked in that folder, never twice in one conversation.
+
+An unattended run never moves a folder: it stops, and says that the folder needs moving the
+next time someone opens Gameplan.
 
 ### Resolving the folder
 
@@ -45,7 +90,7 @@ without "client folder"), and its slug is the folder's own name, set when the fo
 and never worked out again.
 
 1. Find the client by reading the folders, not by working out a slug: list
-   `<gameplan-root>/clients/`, read each folder's `README.md` title, and match what the person
+   `<memory>/clients/`, read each folder's `README.md` title, and match what the person
    typed against the names and the folder names, ignoring case, on whole words ("Veltrix" finds
    "Veltrix Bio"; "Calderon" finds "Calderon Diagnostics" in `clients/calderon/`). One match is
    the client, called by its full name from then on. Several: ask which. A name that only
@@ -81,7 +126,7 @@ runs are the suite's own, which its allowed list names: `gameplan-feeds` and `ga
 should therefore be a folder the scheduling machine sees as local files; a synced OneDrive,
 SharePoint, or Google Drive folder serves the team and the scheduler alike. If an unattended run
 cannot find the client folder that way, it stops, and saying why is its whole output. The morning
-check's one file outside the client folders is `today.md` at the gameplan root, which the suite
+check's one file outside the client folders is `today.md` in the memory folder, which the suite
 router rewrites each morning.
 
 ### The fixed file set
@@ -96,7 +141,7 @@ Eleven files, identical for every client, built by onboarding and loaded by the 
 | `calendar.md` | Every forward date that matters to the client, each graded, with the agency deadlines it carries | Re-verify dates older than one quarter before planning on them; a LAPSED row is a finding |
 | `activity-log.md` | What the agency did that the client could see or that committed the client publicly | Append-only: never edited, corrected only by a new row |
 | `runs.md` | What the suite itself ran for the client, and which suggestions the user declined. Internal: never shown to the client, never quoted in a deliverable | Append-only; the suite router reads it to work out what comes next |
-| `approved-claims.md` | The claims ledger: each recurring claim with a substantiation verdict and an approval column | Only claims marked approved may be used unqualified in drafts; everything else keeps its ⚠ until someone approves or accepts it once |
+| `approved-claims.md` | The claims ledger: each recurring claim with a substantiation verdict and an approval column | Only claims marked approved may be used unqualified in drafts; everything else keeps its ⚠; approving or accepting it once stops the question about it, never the mark |
 | `voice-and-style.md` | Register, spokesperson roles, naming conventions | Match when drafting |
 | `competitors.md` | The client's competitive field: a starter set at onboarding, a tiered set once a landscape run has written one | A starter set is not a discovery output |
 | `constraints.md` | Cannot-say, NDAs, quiet periods, spokespeople | **Optional.** Never asked: the person is told once that they can give it at any time, and "not given yet" is a full state. Never a blocker, never a per-run warning, never a banner (see Optional facts) |
@@ -214,7 +259,7 @@ Facts a run produces that belong in the folder (a newly found competitor, a new 
 changed status, a calendar event) are shown with the output they came from, one plain line
 each, in the message that asks for its approval. The approval of that output writes them into
 the relevant file in the same act, dated and sourced; there is no separate approval, and
-nothing is written before it. A run whose output is not approved writes none of them.
+nothing is written before it. A run whose output is not approved writes none of them. The landscape's approval gives them as one line of counts by kind, since each is in the document being approved (its competitors table, its timeline), and lists them when the person asks.
 **In the set-up job** (the suite router's Job 5) the steps run on without stopping and each reads
 what the one before it found, so a fact is written when it is found, sourced as always, with
 `not yet reviewed` at the end of its line. In a table row the mark goes inside the row's source cell,
@@ -231,47 +276,52 @@ update is one plain line where it is shown, in this shape: "Orvane's earnings ca
 they were made ("Those 4 updates are in Pellamune's records."). Events and deadlines go by name and date, never an id or a file
 name.
 
-### Where people find things: `Deliverables/<Client name>/`
+### Where people find things: `<Client name>/`
 
-The client folder is storage, and nobody needs to open it. Everything a person opens, approves,
-or sends is in one folder per client at the gameplan root, `Deliverables/<Client name>/` (the
-client's name as the title of its folder's `README.md` gives it, never a shorter form the user
-typed: `Deliverables/Veltrix Bio/` when they say "Veltrix"), with plain file names:
+The client folder is storage, and nobody needs to open it. It is kept in memory. Everything a person opens,
+approves, or sends is in one folder per client at the top of the gameplan root, `<Client name>/`
+(the client's name as the title of its client folder's `README.md` gives it, never a shorter form
+the user typed: `Veltrix Bio/` when they say "Veltrix"), with plain file names:
 
 `<Client name> - <What it is> - <D Mon YYYY>.<ext>`, e.g. `Pellamune - Competitive landscape - 12 Nov 2026.docx`
 
-| What it is | File name | In `Deliverables/<Client>/` |
+| What it is | File name | In `<Client name>/` |
 |---|---|---|
-| The competitive landscape | `<Client> - Competitive landscape - <D Mon YYYY>.docx` | the folder itself |
-| The quarterly activities snapshot | `<Client> - Activities snapshot - <quarter>.docx` | the folder itself |
+| The competitive landscape | `<Client> - Competitive landscape - <D Mon YYYY>.docx` | `Drafts/` for approval, the folder itself once approved |
+| The quarterly activities snapshot | `<Client> - Activities snapshot - <quarter>.docx` | `Drafts/` for approval, the folder itself once approved |
 | The daily brief | `<Client> - Daily brief - <D Mon YYYY>.docx` | `Daily briefs/` |
 | An alert brief | `<Client> - Alert brief - <D Mon YYYY> <HHMM>.docx` | `Daily briefs/` |
 | A pitch list | `<Client> - <Release title> - <D Mon YYYY>.csv`, with `<Client> - <Release title> - <D Mon YYYY> - summary.csv` beside it | `Pitch lists/` |
 | Coverage of one campaign (outcomes) | `<Client> - Coverage report - <Release title> - <D Mon YYYY>.docx` | `Coverage reports/` |
 | Coverage over a period (clips) | `<Client> - Coverage report - <period>.docx`, with `<Client> - Coverage report - <period>.csv` beside it | `Coverage reports/` |
-| A media list's review page | `<Client> - Media list - <D Mon YYYY>.html`; names that could not be written go in `<Client> - Media list - <D Mon YYYY> - for review.csv` | the folder itself |
-| The Pulse report | `<Client> - <What Claude says \| What AI engines say> - <D Mon YYYY>.html` | the folder itself |
+| A media list's review page | `<Client> - Media list - <D Mon YYYY>.html`; names that could not be written go in `<Client> - Media list - <D Mon YYYY> - for review.csv` | `Drafts/` for approval, the folder itself once approved |
+| The Pulse report | `<Client> - <What Claude says \| What AI engines say> - <D Mon YYYY>.html` | `Drafts/` for approval, the folder itself once approved |
+| A wargame run by itself | `<Client> - Wargame - <D Mon YYYY>.docx` | `Drafts/`, the folder itself once approved |
+| A catalyst timeline run by itself | `<Client> - Catalyst timeline - <D Mon YYYY>.docx` | `Drafts/`, the folder itself once approved |
 | The status page | `<Client> - Where things stand.html` | the folder itself |
 
-`<Client>` is the client's name as above. A skill names its file as this table does and adds no
-name of its own; an output not in the table (a wargame or a timeline run by itself) is a reply
-in the conversation and saves no file for a person.
+`<Client>` is the client's name as above. A skill names its file as this table does and adds no name of its own. An output not in the table saves no file for a person.
 
-- An approved copy keeps the name and adds ` - approved`; earlier copies are never changed. The
-  suffix is for something first saved for approval (the landscape, the snapshot); a file made only
-  after its approval (a brief, a coverage report, a Pulse report, a pitch list) has none.
+- **The top of a client's folder holds only what was approved.** A file there is safe to send.
+  Anything first saved for approval (the landscape, the snapshot, a page's copy for approval) is
+  saved in `Drafts/`, under the name in the table, and stays there. On approval the approved copy is made in the folder itself, under the same name with nothing added. Nothing is moved, deleted or written over: the draft is the
+  record of what was put to the person; a file made only after its approval (a brief, a coverage
+  report, a pitch list) goes straight where the table says.
+- A second version on the same day adds ` - v2` to the name (then ` - v3`), for a page as well as a file, and the earlier one stays. A new date is a new file.
+- A folder moved from an earlier version may hold names ending ` - approved` or ` - 2`. They are
+  read as what they are and never renamed.
 - Repeated outputs get a subfolder: `Daily briefs/`, `Pitch lists/`, `Coverage reports/`.
 - The status page is `<Client name> - Where things stand.html`, rebuilt by the core plugin's
   suite router (its status page section).
 - Nothing a person opens or approves is a Markdown file: it is a Word file, a page (`.html`), or a
   spreadsheet (`.csv`).
-- Work with no client (a topic media list, a keyword coverage report) goes in
-  `Deliverables/<Topic>/` under the same naming.
-- Nothing else goes in `Deliverables/`. The working file a Word or PowerPoint file is built from
-  (its content, as JSON) is kept in `build/` at the gameplan root, which nobody needs to open.
+- Work with no client (a topic media list, a keyword coverage report) goes in `<Topic>/` at the top of the gameplan root, under the same naming, with its own `Drafts/`.
+- Nothing else goes in a client's or a topic's folder. The working file a Word or PowerPoint file
+  is built from (its content, as JSON) is kept in the memory folder's `build/`, which nobody
+  needs to open.
 
 **Every run that saves something for a person names it**, by folder and file name, in the message
-that presents it or in its last message: "Saved: Pellamune - Competitive landscape - 12 Nov 2026, in Deliverables, Pellamune."
+that presents it or in its last message: "Saved: Pellamune - Competitive landscape - 12 Nov 2026, in Pellamune, Drafts." (an approved copy: "in Pellamune.")
 Storage files are never named, and nor is the client's status page when the close of a run rebuilds it.
 The one exception: inside the suite router's set-up-a-client job,
 the router's line between steps names what the step saved and takes the place of the step's
@@ -412,6 +462,7 @@ here and nothing in the activity log until the pitches go out.
   edited or removed. To place it, anchor on the whole last row (unique in the file), or rewrite the
   file with every old row unchanged and the new ones at the end.
 - Each action is one row, written once; an id continues the file's highest (AC-007 → AC-008).
+- An `approved` row's detail says who approved it ("approved by <name>"), whichever skill writes it: a row that says approved and not by whom leaves the question open for whoever reads the record.
 - After writing, read the table back, with no note saying so, and check it holds the new rows
   and every old row unchanged; what the reply then says was recorded is what the file holds
   (Writing, and what a reply may say).
@@ -516,7 +567,9 @@ compound claims: **✓ supported / ⚠ qualified (with the caveat supplied) / �
 qualifications. Every row has an approval column, headed "Approved" (an older folder may carry the
 agency's earlier header, such as "Agency approval"; it is read the same way): verdicts are
 analysis, approval is a person's. Repetition in releases or news is not evidence; a claim is never
-upgraded on its strength.
+upgraded on its strength. A claim whose only source is the company itself is never ✓ supported: it
+is at best ⚠ qualified, with the caveat that it is attributed to the company ("the company says
+it received ...").
 
 **Approved once, never asked again.** At onboarding the claims are shown in chat as a short
 readable list, grouped by verdict, and approved in one answer; each approved row's column reads `approved by <name>, <date>`. Later, when

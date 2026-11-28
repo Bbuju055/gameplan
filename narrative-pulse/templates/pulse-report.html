@@ -23,7 +23,8 @@ h1{font-family:var(--display);font-weight:400;font-size:40px;line-height:1.05;ma
 .state{display:flex;gap:10px;align-items:center;flex-wrap:wrap;font-size:13px;color:var(--muted)}
 .state b{color:var(--ink)}
 .band{display:inline-block;background:var(--good);color:#fff;padding:3px 8px}
-body[data-doc-state="for-approval"] .band{background:var(--warn)}
+/* the other state, named so that changing the body's state by replacing its words cannot turn this rule */
+body[data-doc-state^="for"] .band{background:var(--warn)}
 .facts{display:grid;grid-template-columns:150px minmax(0,1fr);gap:4px 24px;margin:16px 0 0;font-size:13px}
 .facts dt{font-family:var(--label);font-weight:700;font-size:11px;line-height:1.9;letter-spacing:.08em;text-transform:uppercase;color:var(--muted)}
 .facts dd{margin:0}

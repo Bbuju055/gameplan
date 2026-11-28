@@ -17,8 +17,7 @@ on one go-ahead.
 5. **Measure.** The coverage a campaign landed, and what AI engines say about the client.
 
 What landed sharpens the next pitch list, what the AI engines get wrong becomes the next pitch
-angle, and the client's calendar tells Gameplan what is due next. Everything a person opens is in
-`Deliverables`, one folder per client, with plain names.
+angle, and the client's calendar tells Gameplan what is due next. Everything a person opens is in a folder under the client's own name, with plain names.
 
 ## The five plugins
 
@@ -73,7 +72,7 @@ hold the firm's work. Claude Code adds what the app can't hold:
 Client folders, the firm's filled settings and finished deliverables stay in the firm's own
 folder and are never part of this repository.
 
-## Known limits in 1.1.0
+## Known limits in 1.2.0
 
 - **The media list is thin on web search alone.** With no news feed or reporter database
   connected, most names rest on one article and few come with a way to reach them. The page says
@@ -83,14 +82,15 @@ folder and are never part of this repository.
 - **Two runs on the same client can find different things.** The research is a live search, so
   the claims and competitors it finds vary. Everything found is shown for approval before it is
   used.
-- **Replies sometimes run longer than they should**, and the short lines shown while a run works
-  can name something internal.
-- **The suite keeps its records as files in your folder** (`clients/`, `build/` and the settings
-  file) beside `Deliverables/`. Only `Deliverables/` is meant to be opened. A tidier layout is
-  planned.
-- **Tried by hand in the Claude app:** setting the agency up and setting a client up. Everything
-  after that (the daily brief, pitch lists, wargames, timelines, clips and coverage reports) has
-  been checked by automated sessions only.
+- **Replies sometimes run longer than they should:** the landscape's approval summary can run a
+  sentence long. The short lines shown while a run works can name something internal.
+- **The suite keeps its records as files in your folder,** in one folder named `Gameplan memory - DO NOT DELETE`. It is everything Gameplan knows about your clients: back it up with the rest and never delete it. Each client's own folder is the one meant to be opened.
+- **In the Claude app, moving a folder from 1.0.0 or 1.1.0 leaves one old folder behind,
+  empty.** Gameplan names it when the move is done; delete it yourself.
+- **Tried by hand in the Claude app:** installing from the plugin files, moving a folder from
+  1.1.0, setting the agency up and setting a client up. Everything after that (the daily brief,
+  pitch lists, wargames, timelines, clips and coverage reports) has been checked by automated
+  sessions only.
 
 ## Names in examples
 

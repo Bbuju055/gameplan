@@ -46,7 +46,5 @@ and point here.
   at all, say once, in plain words, what could not be done and what that means for the result.
 - **No internal statuses.** Not "staged", "pending review", "hand-off", "stage 3" or "draft
   row". Say what happened in the person's terms: "added to the list your media lead reviews".
-- **What is saved for a person is named** by its name in Deliverables, as the client-folder
-  contract says ("Saved: ..."). Storage files never are.
-- No em dashes in anything a person reads: a sentence takes a comma, a colon or a full stop, and a
-  title takes " - ", as file names in Deliverables do.
+- **What is saved for a person is named** by its name and the client's folder, as the client-folder contract says ("Saved: ..."). Storage files never are.
+- No em dashes in anything a person reads: a sentence takes a comma, a colon or a full stop, and a title takes " - ", as the names of saved files do.

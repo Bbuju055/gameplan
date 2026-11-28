@@ -43,8 +43,7 @@ laptop). Keep what is recorded and ask only the question, engine and pass combin
 saying how many are already in. Write each answer's line as it arrives, so an interruption loses as
 little as possible. The script does this for its engines when it is run again on the same
 `answers.jsonl` with the same date and passes: it keeps the header, leaves every recorded line
-alone and asks only the rest. A combination recorded as not answered counts as recorded and is
-not asked again.
+alone and asks only the rest. A combination recorded as not answered counts as recorded and is not asked again. When no engine can be asked for what is missing, the run goes on with what is recorded, as a partial run: nothing recorded is thrown away, nothing is answered from this session, and what was not asked is not measured.
 
 ## What Claude's helper can see
 

@@ -1,9 +1,19 @@
 {
   "name": "core",
-  "version": "1.1.0",
+  "displayName": "Gameplan",
+  "version": "1.2.0",
   "license": "MIT",
   "description": "Start here. Say \"set us up\", then \"set up\" and your client's name: Gameplan sets the client up across every plugin on one go-ahead and keeps a page of where things stand. Each morning, ask what's due.",
+  "icon": "./logo.svg",
   "author": {
     "name": "Mo Ngom"
-  }
+  },
+  "homepage": "https://github.com/Bbuju055/gameplan",
+  "repository": "https://github.com/Bbuju055/gameplan",
+  "keywords": [
+    "public relations",
+    "communications",
+    "life sciences",
+    "biotech"
+  ]
 }

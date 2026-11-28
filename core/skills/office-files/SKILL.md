@@ -25,10 +25,10 @@ content where it is. No file is better than an improvised one.
 
 ## Making a file
 
-1. Write the approved content as JSON in the gameplan root's `build/` folder (made the first time),
+1. Write the approved content as JSON in the memory folder's `build/` folder (the client-folder contract's `<memory>/build/`, made the first time),
    named `<file name>.content.json`, extension kept (`x.pptx.content.json`), so a .docx and a .pptx
-   of the same name never share one. Never in `Deliverables/`, which holds only what a person
-   opens: the command refuses a content file there. A line shown while this is done says
+   of the same name never share one. Never in a client's folder or at the top of the gameplan root, which hold only what a person
+   opens: the command refuses a content file anywhere else in the gameplan root. A line shown while this is done says
    "Building the <what it is>." ("Building the coverage report."), never "the content file".
    Shapes below. Text goes in exactly as
    approved, and every link is a full web address starting `http://` or `https://`; the command
@@ -38,11 +38,11 @@ content where it is. No file is better than an improvised one.
      a brief adds `--decisions <its decisions.md>` and `--draft <its saved draft.md>`, and the
      build stops unless the gaps match the log line for line and every headline, summary, Signal
      line and the sources line stands in the saved draft word for word;
-   - an agency's own `.docx` or `.pptx` registered in the gameplan root's `templates/`:
+   - an agency's own `.docx` or `.pptx` registered in the memory folder's `templates/`:
      `gameplan-render fill --template <it> --content <content.json> --root <gameplan root> --client <slug> --out <file>`.
    Leave out `--client` only for work with no client folder (a keyword clips report, a list not
    linked to a client).
-3. Read the result. `ok` means the file passed the residue check (every other client's name, in
+3. Read the result. `say`, when the result has it, is said in chat as it is, word for word, before the Saved line. `ok` means the file passed the residue check (every other client's name, in
    the text and in link targets, image descriptions and tooltips, any
    unfilled marker, text in hidden table cells, notes and metadata) and lists its links. The
    links are checked to be web addresses, not opened: never say they work or are live. An
@@ -56,8 +56,8 @@ content where it is. No file is better than an improvised one.
    no file can be checked until that folder's `README.md` has a first line with the client's
    name, so say which client's folder needs it and stop.
 4. A file is never overwritten. Name it as the client-folder contract says (`<Client name> -
-   <What it is> - <D Mon YYYY>.docx`, in `Deliverables/<Client name>/`); an approved copy adds
-   ` - approved`, a revised one ` - v2`, and the earlier one stays. When the name is already taken,
+   <What it is> - <D Mon YYYY>.docx`, in `<Client name>/`: its `Drafts/` when it is saved for approval,
+   the folder itself for the approved copy); a revised one ` - v2`, and the earlier one stays. When the name is already taken,
    take the next one (` - v2`, then ` - v3`) and build again. The command makes the folder the
    file goes in when it is not there yet (a client's first brief, pitch list or coverage
    report): never ask the person to make it.
@@ -108,6 +108,8 @@ ignored.
   `competitors` (`name`, `tier` in plain words, `why`), `timeline` (`when`, `who`, `what`,
   `grade`, `basis`), `scenarios` (`event`, `window`, `grade`, `branches`: `outcome`, `messages`
   lines, `holding`), `gaps` and `method` line lists.
+- **wargame** (a wargame run by itself): `client`, `space`, `prepared_date`, `approved` (`name`, `date`; left out for the copy in `Drafts/`, which reads "Draft for review"), `events` (each `event`, `window`, `grade`, `branches`, and `pre_positioning` for an inherited-risk event; each branch `outcome`, `likelihood` when one is given, `read`, `terrain`, `messages`, `posture`, `holding`, and `qa` lines for a high-relevance branch), then the line lists `cross_event`, `watch` and `before_use`, and `say` (the lines said in chat when the file is handed over: 1 to 3, each 260 characters at most; never printed in the file). Every line of `messages` carries exactly one claim tag, `✓substantiated` or `⚠needs-support`: the command builds no file otherwise.
+- **catalyst-timeline** (a timeline run by itself): `client`, `space`, `prepared_date`, `horizon`, `approved` as above, `next_90` and `later` (each event `when`, `who`, `what`, `grade`, `basis`, and `why`, the line saying what it changes for the client), `collisions` lines, `inherited_risk` (`when`, `who`, `what`, `grade`, `means`, `deadline`), `undateable` and `dating_gaps` lines, and `say` (the lines said in chat when the file is handed over: 1 to 3, each 260 characters at most; never printed in the file). A part with nothing in it is an empty list, and the file says none was found.
 - **fill**: `title` (the file's title), `replace` (each inline placeholder, braces included, to
   its text), `lists` (each placeholder line to its lines; an empty list removes the line),
   `pictures` (a logo block's alt text to `{"text": ...}` or `{"image": "<path to a file of the

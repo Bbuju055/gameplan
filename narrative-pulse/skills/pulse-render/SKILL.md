@@ -21,16 +21,14 @@ One deliverable, the client's eyes. Every number traces to `scores.md`, every qu
 
 ## The file
 
-`Deliverables/<Client>/<Client> - <What Claude says | What AI engines say> - <D Mon YYYY>.html` at
-the gameplan root (the client-folder contract's naming), with ` - 2` when the run folder has its
-`-2` suffix, so a second run that day never overwrites the first report; always filled from
+`<Client>/<Client> - <What Claude says | What AI engines say> - <D Mon YYYY>.html`, in the client's own folder at the top of the gameplan root (the client-folder contract's naming), with ` - v2` when the run folder has its `-2` suffix, so a second run that day never overwrites the first report; always filled from
 `templates/pulse-report.html`, never copied from an earlier report (read `templates/pulse-report.md`
 first for the slot rules). Load the
 suite's org config (the core plugin's `org-config` skill) for `{{ORG_NAME}}` and the brand tokens.
 `data-doc-state="approved"`, the band naming the reviewer and the review date: the review's
 approval is the report's, and nothing approves it again. **The copy for approval**, which pulse-run asks for before the review,
-is the same page under the same name with `data-doc-state="for-approval"`, the band's words replaced by "For approval · not yet approved" and the
-"Reviewed by" words left out; on approval the page is written again as approved, over it, with `data-doc-state="approved"`. The band's words and the page's state always agree: a page whose band says "Approved" is in the approved state, and the last check before the file is named is that the two match. The name is "What Claude says" when
+is the same page under the same name, saved in `<Client>/Drafts/`, with `data-doc-state="for-approval"`, the band's words replaced by "For approval · not yet approved" and the
+"Reviewed by" words left out; on approval the approved page is written in `<Client>/` itself, with `data-doc-state="approved"`, and the copy in `Drafts/` stays as it was. The band's words and the page's state always agree: a page whose band says "Approved" is in the approved state, and the last check before the file is named is that the two match. The name is "What Claude says" when
 Claude was the only engine measured (always the case in the Claude app), "What AI engines say"
 when ChatGPT or Perplexity was measured too, in the file name, the page title, and the masthead. Baseline runs also write
 `narrative/baseline.md`: the roll-ups and per-question table in plain markdown, once, never

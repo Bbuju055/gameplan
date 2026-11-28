@@ -14,14 +14,12 @@ review it fast.
 ## Template registry and resolution
 
 Deliverables are typed; each type has a named template. Resolution order for a template file:
-the gameplan root's `templates/` (the root found as the core plugin's client-folder contract
-says), then the plugin's own `templates/` directory (shipped defaults). Finished deliverables are
-saved where the contract says: `Deliverables/<Client name>/`, named
+the memory folder's `templates/` (the core plugin's client-folder contract says where memory is), then the plugin's own `templates/` directory (shipped defaults). Finished deliverables are
+saved where the contract says: in the client's own folder, `<Client name>/`, its `Drafts/` for the copy shown for approval and the folder itself for the approved copy, named
 `<Client name> - <What it is> - <D Mon YYYY>.docx`, the folder made if it is missing. Each
 `.pptx`/`.docx` template ships with a same-name `.md` mapping spec; read it before populating. A
 type whose shipped default is a layout in the core plugin's `gameplan-render` is built with
-`gameplan-render build`; an agency's `.pptx` or `.docx` of the same name in the gameplan root
-takes its place and is filled with `gameplan-render fill`. Never install anything to make a file;
+`gameplan-render build`; an agency's `.pptx` or `.docx` of the same name in the memory folder's `templates/` takes its place and is filled with `gameplan-render fill`. Never install anything to make a file;
 if the command is missing or fails, say so and stop. Load the core plugin's `office-files` skill
 first, without announcing it: it gives the command's path, the full rule and the content shapes.
 
@@ -54,8 +52,9 @@ so in one line after the draft; it is never a reason to stop before building.
 
 - [ ] The copy shown for approval reads "Draft for review" on page one; the approved copy names
       the approver and date instead.
-- [ ] **Every ⚠needs-support tag survives** formatting, visibly, next to its claim, unless that
-      claim is approved or accepted in the client's claims ledger. Formatting that silently drops
+- [ ] **Every ⚠needs-support tag survives** formatting, visibly, next to its claim, in the copy for approval and in
+      the approved copy alike: an accepted claim keeps its mark, and what the acceptance stops is
+      the question (the client-folder contract). Formatting that silently drops
       a tag converts a known risk into a hidden one.
 - [ ] Every forward date keeps its confidence grade; ESTIMATED/SPECULATIVE stay windows.
 - [ ] The sources and gaps and the method sections are included: they are part of the product's
@@ -63,7 +62,7 @@ so in one line after the draft; it is never a reason to stop before building.
 - [ ] **Residue check:** `gameplan-render` checks ALL text in the produced file, including
       merged or hidden table cells, speaker notes, and metadata, for content belonging to any
       other client or to the template's source engagement.
-- [ ] Named and saved as the contract says, and said in the reply as the contract's "Saved:" line says it (the file's name, then "in Deliverables, <Client>"), never as a path.
+- [ ] Named and saved as the contract says, and said in the reply as the contract's "Saved:" line says it (the file's name, then "in <Client>, Drafts" for a copy for approval or "in <Client>" for an approved one), never as a path.
 - [ ] A `deliverable` row (or the calling run's own row, such as `landscape`) appended to the
       client's `runs.md`: what it is in plain words, `draft`, its path.
 
@@ -84,8 +83,7 @@ new version is a new copy and is approved again. Approving a later version does 
    choice between options: a yes approves and accepts. Each acceptance
    is written back to the claims ledger (`accepted by <name>, <date>`) and never asked about
    again. A user who declines a claim gets it cut or qualified, then the approval question again. A copy approved in a later conversation is asked about there, with its open claims named again: a question asked in an earlier conversation does not count.
-2. **The approved copy.** Build it again with the approval in it, saved with ` - approved` added
-   to the name; the copy shown for approval stays untouched.
+2. **The approved copy.** Build it again with the approval in it, saved under the same name in the client's folder itself; the copy shown for approval stays untouched in `Drafts/`.
 3. **Close the loop.** Record the approval in the method section, append an `approved` row to
    `runs.md` naming the file, and apply the run's folder updates in the same act (the contract's
    Proposed updates).

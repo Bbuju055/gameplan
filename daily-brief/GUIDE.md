@@ -35,7 +35,7 @@ smarter about what you want).
    has not approved for unqualified use. The approval question names them, so one answer
    accepts them (and they're never asked about again), or you fix the wording.
 4. **Say "approved."** Your name from setup and the time go on the record, and the Word file is
-   saved in `Deliverables`, then the client's name, then `Daily briefs`, named like
+   saved in the client's own folder, under `Daily briefs`, named like
    *Acme - Daily brief - 25 Aug 2026*. The reply names it. Attach and send as usual.
 
 ## When news breaks mid-day

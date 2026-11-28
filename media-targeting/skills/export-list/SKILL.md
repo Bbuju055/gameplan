@@ -1,6 +1,6 @@
 ---
 name: export-list
-description: Generate the pitch-list spreadsheet (a CSV of every segment's ranked reporters, each with the angle to lead with, plus a summary CSV) in the client's Deliverables folder and name the files to the operator. Fires automatically after a successful save, or standalone when the operator asks to re-export any previously saved list. Cross-plugin requests route through core's suite-router.
+description: Generate the pitch-list spreadsheet (a CSV of every segment's ranked reporters, each with the angle to lead with, plus a summary CSV) in the client's folder and name the files to the operator. Fires automatically after a successful save, or standalone when the operator asks to re-export any previously saved list. Cross-plugin requests route through core's suite-router.
 ---
 
 # Export List
@@ -21,7 +21,7 @@ Load the suite's org config (the core plugin's `org-config` skill) and read: `or
 - **Discovered reporters** whose email wasn't publicly sourced carry "verify contact before sending" in the contact column, and one with no email found at all reads "not found: verify manually" — the export must preserve the discovery trust boundary, not launder it.
 - If the finalize-time pending-review write failed, discoveries also get their own **"for your review"** CSV, in pending-review column order, and one line in the hand-over telling the operator to paste its rows into the pending-review file.
 - **Summary CSV** (`<Client> - <Release title> - <D Mon YYYY> - summary.csv`, beside the list): client, release title, date, operator, segment counts, list id and version — plus the parse-coverage line from the build, so the files record what the log looked like that day.
-- Saved in `Deliverables/<Client>/Pitch lists/` (the core plugin's client-folder contract; a list with no client: `Deliverables/<Release title>/`), named `<Client> - <Release title> - <D Mon YYYY>.csv`, with ` - summary.csv` and, when needed, ` - for review.csv` beside it. The reply names the file and its folder ("Saved: Pellamune - Series A - 12 Nov 2026, in Deliverables, Pellamune, Pitch lists.").
+- Saved in `<Client>/Pitch lists/` (the core plugin's client-folder contract; a list with no client: `<Release title>/` at the top of the gameplan root), named `<Client> - <Release title> - <D Mon YYYY>.csv`, with ` - summary.csv` and, when needed, ` - for review.csv` beside it. The reply names the file and its folder ("Saved: Pellamune - Series A - 12 Nov 2026, in Pellamune, Pitch lists.").
 - Write the CSVs directly (UTF-8, a header row) and run the core plugin's `gameplan-render check` on each before handing them over. Never install anything to make a spreadsheet. Load the core plugin's `office-files` skill first, without announcing it: it gives the command's path and the full rule.
 
 ## Modes

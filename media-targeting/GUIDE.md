@@ -36,8 +36,7 @@ and asks you to confirm. Your media list is only ever read, never changed.
    get wrong.
 4. **Edit in plain words.** *Drop Omar*, *add Grace*, *drop the regional group*, *lead with the
    hiring angle for Tomas*.
-5. **Say *use this list*.** The list is saved and the spreadsheet goes in `Deliverables`, then the
-   client's name, then `Pitch lists`; the reply names it. New reporters you approved go to a
+5. **Say *use this list*.** The list is saved and the spreadsheet goes in the client's own folder, under `Pitch lists`; the reply names it. New reporters you approved go to a
    separate file for whoever owns the firm's media list to review.
 6. **When the pitches go out, say so** (*the pitches went out to everyone except Tomas*). The
    client's record then shows who was pitched, with which angle.
@@ -45,8 +44,7 @@ and asks you to confirm. Your media list is only ever read, never changed.
 ## What a campaign landed
 
 One to two weeks later, type `/outcomes` and the campaign. Claude looks for the coverage, shows you
-what it found to confirm, and builds a Word report for the client in `Deliverables`, then the
-client's name, then `Coverage reports`. Gameplan suggests this when you ask what's due. Confirmed results feed the reporters'
+what it found to confirm, and builds a Word report for the client in the client's own folder, under `Coverage reports`. Gameplan suggests this when you ask what's due. Confirmed results feed the reporters'
 track record, so future lists favour the reporters who actually cover the client.
 
 ## Who covers a beat
@@ -54,8 +52,7 @@ track record, so future lists favour the reporters who actually cover the client
 The client's first one is built when the client is set up. To refresh it, or for a topic, type
 `/media-list` and a client or topic. Claude finds who has written about it in the last three
 months, compares them with your list, and checks the names you already have on that beat: moved,
-changed beat, or left. You review it all on one page (*Acme - Media list - 12 Nov 2026*, in the client's
-`Deliverables` folder), and only what you approve is added. If a journalist database such as Muck
+changed beat, or left. You review it all on one page (*Acme - Media list - 12 Nov 2026*, in the client's own folder, under `Drafts`), and only what you approve is added. If a journalist database such as Muck
 Rack or Cision is connected in Claude, it's used too.
 
 ## Good to know

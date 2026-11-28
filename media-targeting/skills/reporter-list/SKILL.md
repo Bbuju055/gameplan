@@ -20,7 +20,7 @@ Nothing about this step is said to the operator; every message follows the core 
 `pending_review.file_name`, and the core `next_actions.list_stale_days` threshold.
 
 **Find the source.** `media_log.source` when set. Unset: `m365` if `media_log.sharepoint_site`
-is filled; else `suite` if `<gameplan root>/media/reporter-list.md` exists; else there is no list
+is filled; else `suite` if `<memory>/media/reporter-list.md` exists; else there is no list
 yet.
 
 - The source's own location values still TODO(org) → the list's location is not known: read
@@ -52,22 +52,21 @@ yet.
      `sheets`, and never writes the file. It reads the first sheet unless told another: when
      `media_log.main_sheet` is filled, add `--sheet "<that name>"`. If the rows read look like
      another tab's, say so, name the workbook's other tabs, ask which one holds the log, and read
-     that one; then write `media_log.main_sheet` to the gameplan root's `org-config.yaml`, changing
+     that one; then write `media_log.main_sheet` to the agency's `org-config.yaml` (in the memory folder), changing
      only that value, and read it back (with nowhere to write, use it for this run and say it
      won't be remembered). Never
      install anything to read it; if the command is missing or fails, say so and stop.
-   - **suite** — `<gameplan root>/media/reporter-list.md`, the `## Reporters` table. Its columns
+   - **suite** — `<memory>/media/reporter-list.md`, the `## Reporters` table. Its columns
      are fixed (`templates/reporter-list.md`); the column map does not apply.
 2. **Confirm the columns on the first read.** If the column map is still TODO(org) for an m365,
    google or file source, match the real header row and the first rows to the fields, and ask once
    in plain words: "Your list has these columns. I'd read 'Journalist' as the reporter's name,
    'Publication' as the outlet, 'Covers' as the beat, and I didn't find a region column. Is that
-   right?" Use no rows and give no row counts until they confirm or correct it. Then write the map to the gameplan root's
-   `org-config.yaml`, changing only those values, and read it back; a column with no match is `""`.
+   right?" Use no rows and give no row counts until they confirm or correct it. Then write the map to the agency's `org-config.yaml` (in the memory folder), changing only those values, and read it back; a column with no match is `""`.
    With nowhere to write, use the map for this run and say it won't be remembered. An unattended
    run doesn't ask: it skips the list and says so once.
 3. **Normalize rows** using the column map and the agency's rules in
-   `<gameplan root>/media/parsing-rules.md` (beat synonyms, delimiter tolerance, skip rules). No
+   `<memory>/media/parsing-rules.md` (beat synonyms, delimiter tolerance, skip rules). No
    such file yet → use the shape of the plugin's `config/parsing-rules.md`, parse conservatively
    and say so once. **Always report parse coverage in one line:** "Read 412 rows, used 407, skipped
    5, mostly blank beat fields." A row with no reporter name is always skipped, whatever else it holds. Rows skipped for naming an outlet and no reporter are said once, by outlet ("2 rows named an outlet and no reporter, so they were left out: Medwire, Credit Signal"). A row skipped as a repeat is named ("a second row for
@@ -100,7 +99,7 @@ write at all. Columns per `templates/pending-review-columns.md`, for every sourc
   <YYYY-MM-DD>" through the Drive connector's `create_file`, holding the header row and this run's
   rows. A second write on the same day adds "-2". Never edit or delete a Sheet in the agency's
   Drive.
-- **suite** — straight into `<gameplan root>/media/reporter-list.md`, created from
+- **suite** — straight into `<memory>/media/reporter-list.md`, created from
   `templates/reporter-list.md` the first time. New names are added under `## Reporters` with
   today as `Added` and `Last verified`. An approved health-check finding updates the reporter's
   row (a move) or moves it under `## Left` (left the beat, left journalism); nothing is deleted.
@@ -110,8 +109,7 @@ write at all. Columns per `templates/pending-review-columns.md`, for every sourc
   journalism", the new outlet or beat in the existing columns, and the bylines in `Evidence`. They
   suggest a correction; they never change the log.
 - If a write fails (file locked, write scopes not enabled, the file could not be created), say so
-  plainly and hand the rows back to the caller, which saves them as a for-review CSV in the
-  client's Deliverables folder (export-list in a pitch-list run, media-list-run's step 7 in a
+  plainly and hand the rows back to the caller, which saves them as a for-review CSV in the client's folder (export-list in a pitch-list run, media-list-run's step 7 in a
   media-list run) — the chain never stalls on this.
 - Tell the caller where the rows went, so it can say so: the review file, a new review Sheet by
   its name, the suite's own list, or handed back.

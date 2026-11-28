@@ -18,7 +18,7 @@ These checks are silent: never say what was found or looked for. Saying what an 
 
 - **Find the gameplan root** per the contract. No root (a project with no folder) → say the
   contract's no-folder line and stop: there is nowhere to keep the agency's details.
-- **Already set up** (the root's `org-config.yaml` has the agency's name or an approver's name
+- **Already set up** (the agency's `org-config.yaml`, in the memory folder, has the agency's name or an approver's name
   filled) → say in two or three plain lines what is
   set, and ask what they want to change. Only what the suite still uses counts as set: a value an
   older config holds that the shipped one no longer has (a claims sign-off column, say) is left in
@@ -26,7 +26,7 @@ These checks are silent: never say what was found or looked for. Saying what an 
   config saved before the approver's name existed has no `org.approver_name`: say what is set
   the same way, then ask question 1 as the only question in that message; once it is answered
   and written, ask what they want to change.
-- **Not set up** (no `org-config.yaml` at the root, or one with neither of those filled: a file
+- **Not set up** (no `org-config.yaml` in the memory folder, or one with neither of those filled: a file
   with nothing in it is not a setup) → open with "Setting up takes about two minutes." with nothing before it, then ask the questions below in that one message, and nothing else.
   Every question can be skipped ("not sure", "later"); a skipped answer leaves that value unset.
 
@@ -88,9 +88,12 @@ targeting tuning keep their shipped values. The exceptions are things they ask t
 ## Writing
 
 A value is written once its question is answered, never before (the client-folder contract's Writing, and what a reply may say).
-Start from the root's `org-config.yaml` if there is one, else from a copy of the shipped default
-(`${CLAUDE_PLUGIN_ROOT}/config/org-config.yaml`). Replace only the values answered, keep every
-other line and comment as it is, and save it as `org-config.yaml` at the gameplan root. Then read
+Write only the values answered, to `org-config.yaml` in the memory folder (the client-folder
+contract's `<memory>/`, made now if it is not there). With a file already there:
+Replace only the values answered, keep every other line and comment as it is. With none, make it holding just the
+answered values, each under its section and key as the shipped default names them (read
+`${CLAUDE_PLUGIN_ROOT}/config/org-config.yaml` for the names and the nesting; none of its other
+lines go in). Everything not answered stays the shipped default's and is never written. Then read
 it back and check each answered value is there. Say nothing about the file.
 
 ## Closing

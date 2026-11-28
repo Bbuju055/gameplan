@@ -1,8 +1,7 @@
 # Template spec: clips-report (deliverable type: coverage report)
 
 The structure spec for the Word coverage report clips-run builds after approval. A neutral
-default: no agency's format is copied. If a `.docx` template is registered in the gameplan root's
-`templates/`, it takes precedence with its own same-name mapping spec; an agency's house format
+default: no agency's format is copied. If a `.docx` template is registered in the memory folder's `templates/`, it takes precedence with its own same-name mapping spec; an agency's house format
 arrives that way.
 
 ## Brand (from the org config)

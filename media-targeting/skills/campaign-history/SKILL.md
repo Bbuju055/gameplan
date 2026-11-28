@@ -11,7 +11,7 @@ The archive's front door. Every number comes from `scripts/archive.py`; nothing 
 
 ## Reading the archive
 
-The archive is plain files under `<gameplan root>/media/archive/`, which this script reads for every skill:
+The archive is plain files under `<memory>/media/archive/` (the client-folder contract's memory folder), which this script reads for every skill:
 
 `python3 "${CLAUDE_PLUGIN_ROOT}/scripts/archive.py" <command> --root <gameplan root> ...`
 

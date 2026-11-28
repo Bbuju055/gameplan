@@ -42,7 +42,7 @@ the single-question primitive.
 
 ## Client folders
 
-One folder per client (`clients/<slug>/`), fixed schema defined by the core plugin's
+One folder per client (`clients/<slug>/` in the memory folder), fixed schema defined by the core plugin's
 client-folder contract, built by `client-onboard`, loaded by `client-profile`, updated via
 per-run updates applied when the output they came with is approved. Every
 fact carries `| source | date | tier`; what only the firm can know is an explicit
@@ -61,8 +61,17 @@ source-sweep's preflight (probe by tool search, keep a ledger, run once per chai
 The fetch constraint is also probed, not assumed: claude.ai fetch accepts only search-surfaced
 URLs; Claude Code fetches EDGAR and registry API URLs directly.
 
+## Install
+
+In Claude Code: `/plugin install competitive-intel --marketplace Bbuju055/gameplan`. It needs `core` beside it.
+In the Claude app, the [getting-started guide](../core/GUIDE.md) says how.
+
 ## Changelog
 
+- **1.2.0**: a wargame or a timeline run by itself is a Word file and a few lines in chat; the
+  landscape's approval gives three lines from page one and a count of what it saves; the field's
+  definition decides the first tier and no drug in the client's disease is dropped; an accepted
+  claim keeps its mark in the approved file.
 - **1.1.0**: /gameplan sets a client up across the suite; /landscape is a Word landscape with two
   stops (the competitor check, one approval); no draft banners, no progress page, no resume hook.
 - **1.0.0**: first public release.

@@ -3,8 +3,7 @@
 The structure spec for the one-page quarterly activities snapshot that client-deliverable builds
 as a Word document. A neutral default: no agency's format is copied, and no line is fixed text
 apart from the headings; every entry comes from the client's calendar and activity log. If a
-`.docx` or `.pptx` template named `quarterly-snapshot` is registered in the gameplan root's
-`templates/`, it takes precedence with its own same-name mapping spec; an agency's house format
+`.docx` or `.pptx` template named `quarterly-snapshot` is registered in the memory folder's `templates/`, it takes precedence with its own same-name mapping spec; an agency's house format
 arrives that way.
 
 ## Brand (from the org config)

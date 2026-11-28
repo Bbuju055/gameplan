@@ -1,15 +1,41 @@
-# A firm's own work stays out of this repository. Patterns are anchored to the
-# root (leading /) so each plugin's own templates/ and README.md stay tracked.
+# Patterns are anchored to the repo root (leading /) so plugin folders with the same
+# names (each plugin ships templates/ and README.md) stay tracked.
 
-# Client folders and finished deliverables: confidential, never committed.
+# Client confidentiality: never tracked, in any repo, ever.
 /clients/
 /deliverables/
 
-# The firm's filled settings (names, mailboxes, file locations). It overrides
-# core/config/org-config.yaml and is never committed.
+# The agency's filled org config (SharePoint locations, mailboxes, names) lives at the
+# gameplan root and overrides core/config/org-config.yaml. Never tracked.
 /org-config.yaml
+
+# Build output. Source folders are the truth; zips are rebuilt from them.
+/plugin/
+
+# Agency-branded working copies. The plugins ship their own templates.
+/templates/
+
+# Internal docs for the pilot and the portability work.
+/PORTABILITY-PLAN.md
+/PRODUCT.md
+/command-card.html
+/daily-brief-spec.html
+
+# Workflow loop files.
+/NORTH_STAR.md
+/ROADMAP.md
+/WORK.md
+/FINDINGS.md
+/history/
+
+# Eval run output and saved baselines: local only, never tracked.
+**/evals/results/
+**/evals/baselines/
 
 # OS and editor noise.
 .DS_Store
 __pycache__/
 *.pyc
+
+# A design-check tool's settings and cache, written into the working folder. Not part of the product.
+.impeccable/

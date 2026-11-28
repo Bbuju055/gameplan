@@ -6,10 +6,10 @@
 # that needs it states the gap to the operator in plain English and degrades
 # per its SKILL.md — it NEVER guesses a value and never shows a key name.
 #
-# Core's setup skill ("set us up") fills a copy of this file once per agency
-# and saves it at the gameplan root as org-config.yaml, where it takes
-# precedence over this shipped default, so a plugin update never overwrites the
-# agency's values. Nothing else in the suite changes.
+# Core's setup skill ("set us up") writes only the values an agency gives to
+# its own org-config.yaml, in the memory folder. Each value there is read over
+# this shipped default; every other value is read from here, so a plugin update
+# never overwrites the agency's values and its new defaults reach everyone.
 # ============================================================================
 
 org:
@@ -41,7 +41,7 @@ media_log:
                                     #   google — a Google Sheet in the agency's Drive (google_sheet)
                                     #   file   — any tool's export in the gameplan root (file_path)
                                     #   suite  — the agency has none; the suite keeps one at
-                                    #            <gameplan root>/media/reporter-list.md
+                                    #            <memory>/media/reporter-list.md
                                     # Unset: m365 if sharepoint_site is filled; else suite if
                                     # media/reporter-list.md exists (a first /media-list run
                                     # creates it on approval); else no list yet.
@@ -97,10 +97,10 @@ scoring:
     track_record: 0.15
   # Outlets that earn citations in AI answer engines get a bump WITHIN
   # outlet_fit (never a separate dimension). Manually maintained seed list,
-  # kept at <gameplan root>/media/ai-cited-outlets.md.
+  # kept at <memory>/media/ai-cited-outlets.md.
 
 # The agency's log parsing rules (beat synonyms, delimiters, skip rules) live at
-# <gameplan root>/media/parsing-rules.md, so fixing drift is a one-line edit.
+# <memory>/media/parsing-rules.md, so fixing drift is a one-line edit.
 
 history_windows_days: [30, 60, 90]  # pitch-history lookback windows
 

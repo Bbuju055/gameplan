@@ -32,4 +32,4 @@ For the top 5 log reporters of each segment by score, plus every reporter with a
 - Never pad a card with generic advice ("keep it short!") — subject-specific hooks or nothing.
 - For a client-linked list, a hook that rests on something the client claims uses only claims
   approved in the client's claims ledger; a claim still awaiting support is named as such, and
-  nothing the client's constraints rule out is suggested.
+  nothing the client's constraints rule out is suggested. Approved claims may stand side by side in an angle; they are never linked by a cause, a comparison or a result the ledger does not state ("the reason behind it", "thanks to", "which is why"): the link is a new claim, and it is not approved.

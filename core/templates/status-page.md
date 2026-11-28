@@ -1,6 +1,6 @@
 # Template spec: the client status page
 
-`<Client name> - Where things stand.html`, in `Deliverables/<Client name>/`. One self-contained
+`<Client name> - Where things stand.html`, in the client's own folder, `<Client name>/`, at the top of the gameplan root. One self-contained
 page per client, made from `status-page.html` by the suite router (its Job 6), which says when it
 is rebuilt. This file is the one place that says what the page shows and where each part comes
 from. It answers three questions for someone who has never opened the client folder: what
@@ -12,12 +12,10 @@ Copy `status-page.html` and replace each `{{slot}}`. Blocks between `<!-- repeat
 `<!-- /repeat:name -->` are repeated once per item and removed when there are none. The
 `<p class="empty">` line right after a block stays only when that block has no items; otherwise
 it is removed. A link element is removed when it has no file. Everything comes from the client folder (`runs.md`,
-`README.md`, `pipeline.md`, `constraints.md`, `voice-and-style.md`, `own-terms.md`), the org config, and, for links, the files
-in this client's `Deliverables/<Client name>/` folder; nothing is invented, and a part with no recorded
+`README.md`, `pipeline.md`, `constraints.md`, `voice-and-style.md`, `own-terms.md`), the org config, and, for links, the files in this client's `<Client name>/` folder; nothing is invented, and a part with no recorded
 source is not on the page (who approved a step, which connected services a run used).
 
-**Dates** are the date of the latest `runs.md` row for that step or output. **Links** are relative, to the
-newest file for that step or output in `Deliverables/<Client name>/` or its subfolders, found by the
+**Dates** are the date of the latest `runs.md` row for that step or output. **Links** are relative, to the newest file for that step or output in `<Client name>/` or its subfolders (an approved copy in the folder itself before a copy for approval in `Drafts/`), found by the
 name the client-folder contract gives it; no such file there → no link, never a path from `runs.md`.
 
 | Slot | From |
@@ -36,6 +34,6 @@ name the client-folder contract gives it; no such file there → no link, never 
 ## Rules
 
 - Plain words only: no ids, no storage file names, no grades without their meaning.
-- Links stay inside `Deliverables/<Client name>/`, so the page works wherever the folder is synced.
+- Links stay inside `<Client name>/`, so the page works wherever the folder is synced.
 - It never names another client.
 - No em dashes.

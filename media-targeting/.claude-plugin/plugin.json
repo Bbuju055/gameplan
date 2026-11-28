@@ -1,9 +1,22 @@
 {
   "name": "media-targeting",
-  "version": "1.1.0",
+  "displayName": "Gameplan: Media lists and pitching",
+  "version": "1.2.0",
   "license": "MIT",
   "description": "Pitch the right reporters. Your client's media list is built during setup; when you have news, say \"pitch this for\" your client and paste the release. Two weeks later, see what it landed. Needs core.",
+  "icon": "./logo.svg",
   "author": {
     "name": "Mo Ngom"
-  }
+  },
+  "homepage": "https://github.com/Bbuju055/gameplan",
+  "repository": "https://github.com/Bbuju055/gameplan",
+  "keywords": [
+    "public relations",
+    "communications",
+    "life sciences",
+    "biotech",
+    "media list",
+    "reporters",
+    "pitching"
+  ]
 }

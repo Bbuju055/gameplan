@@ -15,7 +15,7 @@ The shared foundation of the suite and its front door. These live here and nowhe
 | The suite router | `skills/suite-router/SKILL.md`, with `ROUTING.md` (which plugin answers what) and `rules/next-actions.md` (what each client needs next) | every session: plain-language requests, setting a client up across every plugin (`/gameplan`, "set up <client>"), each client's status page, "what's next", and the close of every run |
 | The source rules | `rules/sources.md` | every search step: the client's own terms, and any fitting connector the user has |
 | The voice rule | `rules/voice.md` | every message a run shows, the notes while it works included; each command and each skill carry a one-line version and point here |
-| The status page | `templates/status-page.html` and its `.md` spec | the suite router: `Deliverables/<Client>/<Client> - Where things stand.html` |
+| The status page | `templates/status-page.html` and its `.md` spec | the suite router: `<Client>/<Client> - Where things stand.html` |
 | `/today` | `commands/today.md` | the user: the next actions across every client, or for one |
 
 core's one command is `/today`; every other request can be made in plain words and the router
@@ -23,14 +23,14 @@ sends it on. The daily routine is to open the project and ask what's due: `/toda
 what's coming up, and the day's briefs, each started on a yes. No schedule is needed. For someone who
 asks, one optional scheduled job per gameplan root, the morning check, runs `/today --scheduled`
 every day: it starts each client's brief draft and writes what is due for every client into
-`today.md` at the root. Install core with the plugins; a plugin that
+`today.md` in the memory folder. Install core with the plugins; a plugin that
 needs the contract and cannot load it stops and tells the user core is not installed, in plain
 words.
 
 ## The contract, in two parts
 
 Part one is **structure**: the file names, the provenance line on every fact, who approves and
-how, the optional facts, the Deliverables folder, the proposed-updates flow, the PROFILE block. Someone reading part one alone could build a
+how, the optional facts, the memory folder and the client's own folder, the proposed-updates flow, the PROFILE block. Someone reading part one alone could build a
 client folder for a law firm; they could not fill it in, but they would know its shape.
 
 Part two is **field semantics**: what the pipeline file holds, what a catalyst grade is, what the
@@ -41,8 +41,17 @@ media-targeting reads a client folder only when a release is for a client: claim
 and calendar, and it appends pitches and placements to the activity log. A release with no client
 runs without one.
 
+## Install
+
+In Claude Code: `/plugin install core --marketplace Bbuju055/gameplan`, then the same for the plugins you want.
+In the Claude app, the [getting-started guide](GUIDE.md) says how.
+
 ## Changelog
 
+- **1.2.0**: the suite's records live in one folder, `Gameplan memory - DO NOT DELETE`, and each
+  client has a folder of its own with approved files at the top and drafts in `Drafts`; a folder
+  from 1.0.0 or 1.1.0 is moved on one yes; after an approval the reply says the updates were made
+  in one line; each plugin shows a plain name and a logo.
 - **1.1.0**: setting the agency up asks once; a client is set up in two stops; one approval per output by the person running it, under the name saved at setup;
   the folder approved at onboarding; optional facts never a warning or banner; claims approved
   once and written back; everything people open in `Deliverables/<Client>/` with plain names;
